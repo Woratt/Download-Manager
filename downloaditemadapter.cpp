@@ -1,0 +1,1 @@
+#include "downloaditemadapter.h"
