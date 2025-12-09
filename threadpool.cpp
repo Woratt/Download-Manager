@@ -42,14 +42,8 @@ void ThreadPool::addTask(DownloadTask *task){
         }
     }
 
-    if(m_busyThreads.size() == m_maxThread)
-    {
-        m_pendingQueue.enqueue(task);
-    }else
-    {
-        startNextTask();
-    }
-
+    m_pendingQueue.enqueue(task);
+    startNextTask();
 }
 
 void ThreadPool::startNextTask(){
@@ -73,7 +67,33 @@ void ThreadPool::startNextTask(){
 }
 
 void ThreadPool::onTaskPaused(){
+    DownloadTask *task = qobject_cast<DownloadTask*>(sender());
+    if (!task) return;
 
+    QThread *thread = nullptr;
+    for(auto it = m_busyThreads.begin(); it != m_busyThreads.end(); ++it)
+    {
+        if(it.value() == task)
+        {
+            thread = it.key();
+            break;
+        }
+    }
+
+    if(thread)
+    {
+        returnThreadToPool(thread);
+        m_busyThreads.remove(thread);
+
+        task->moveToThread(nullptr);
+
+        disconnect(task, &DownloadTask::finished, this, &ThreadPool::onTaskFinished);
+        disconnect(task, &DownloadTask::paused, this, &ThreadPool::onTaskPaused);
+    }
+
+    emit taskPaused(task);
+
+    startNextTask();
 }
 
 

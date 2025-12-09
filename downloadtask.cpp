@@ -239,7 +239,7 @@ void DownloadTask::stopDownload(){
     if (m_outputFile && m_outputFile->isOpen()) {
         m_outputFile->close();
     }
-
+    emit paused();
     emit finished(m_url);
 }
 

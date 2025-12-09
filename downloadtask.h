@@ -17,7 +17,6 @@ class DownloadTask :  public QObject
 public:
     DownloadTask(const QString&, const QString&, QObject *parent = nullptr);
     ~DownloadTask();
-    void startDownload();
     void startNewTask(QThread* thread);
     void resumeFromDB(QThread* thread, qint64);
     void stopDownload();
@@ -27,6 +26,7 @@ signals:
     void paused();
     void error(const QString&);
 public slots:
+    void startDownload();
     void pauseDownload();
     void resumeDownload();
 private slots:

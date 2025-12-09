@@ -24,6 +24,7 @@ public slots:
 signals:
     void taskStarted(DownloadTask*);
     void taskFinished(DownloadTask*);
+    void taskPaused(DownloadTask*);
 private:
     int m_maxThread;
     QHash<QString, QPair<QThread*, DownloadTask*>> m_activeTasks;
