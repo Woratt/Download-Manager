@@ -24,6 +24,7 @@ public:
 signals:
     void progressChanged(qint64, qint64);
     void finished(const QString&);
+    void paused();
     void error(const QString&);
 public slots:
     void pauseDownload();

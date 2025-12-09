@@ -6,10 +6,38 @@ DownloadManager::DownloadManager(QObject *parent) : QObject(parent){
 }
 
 void DownloadManager::startDownload(DownloadItem *item){
-    m_threadPool->addTask(item);
-    m_items.push_back(item);
+    DownloadTask *task = new DownloadTask(item->getUrl(), item->getFilePath());
 
-    connect(item, &DownloadItem::ChangedBt, this, &DownloadManager::changeBt);
+    connect(item, &DownloadItem::pauseDownload, task, &DownloadTask::pauseDownload, Qt::QueuedConnection);
+    connect(item, &DownloadItem::resumeDownload, task, &DownloadTask::resumeDownload, Qt::QueuedConnection);
+
+    connect(task, &DownloadTask::progressChanged, item, &DownloadItem::onProgressChanged, Qt::QueuedConnection);
+
+    connect(item, &DownloadItem::resumeDownload, this, &DownloadManager::resumeDownload);
+
+    m_threadPool->addTask(task);
+
+    m_itemTask[item] = task;
+}
+
+void DownloadManager::pausedDownload(const QString& url){
+
+}
+
+void DownloadManager::resumeDownload(){
+    DownloadItem *item = qobject_cast<DownloadItem*>(sender());
+    DownloadTask *task = m_itemTask[item];
+    /*for(auto it = m_itemTask.begin(); it != m_itemTask.end(); ++it){
+        if(it.key()->getUrl() == url)
+        {
+            //m_threadPool->addTask(it.key());
+            task = it.value();
+            break;
+        }
+    }*/
+    if(task){
+        m_threadPool->addTask(task);
+    }
 }
 
 void DownloadManager::changeBt(DownloadItem* item, bool checked){
@@ -59,8 +87,8 @@ void DownloadManager::setItemsFromDB(){
     for(auto record : records){
         DownloadItem* item = new DownloadItem(record.m_name, record.m_directory);
         DownloadItemAdapter::updateItemFromRecord(item, record);
-        m_threadPool->addTask(item);
-        m_items.push_back(item);
+        //m_threadPool->addTask(item);
+        //m_items.push_back(item);
 
         connect(item, &DownloadItem::deleteDownload, m_db, &DownloadDatabase::deleteDownload);
 

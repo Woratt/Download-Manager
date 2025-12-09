@@ -28,8 +28,11 @@ private:
     DownloadDatabase *m_db;
     QVector<DownloadItem*> m_selectedItems;
     QVector<DownloadItem*> m_items;
+    QHash<DownloadItem*, DownloadTask*> m_itemTask;
 public slots:
     void startDownload(DownloadItem *item);
+    void pausedDownload(const QString&);
+    void resumeDownload();
     void changeBt(DownloadItem*, bool);
     void downloadAll();
     void pauseAll();
