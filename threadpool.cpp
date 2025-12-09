@@ -97,7 +97,7 @@ void ThreadPool::onTaskPaused(){
 }
 
 
-void ThreadPool::startNewTask(DownloadItem* item){
+//void ThreadPool::startNewTask(DownloadItem* item){
     /*DownloadTask* task = new DownloadTask(item->getUrl(), item->getFilePath());
     QThread* thread = new QThread(this);
 
@@ -125,9 +125,9 @@ void ThreadPool::startNewTask(DownloadItem* item){
 
     m_activeTasks[item->getUrl()] = QPair<QThread*, DownloadTask*>(thread, task);
     thread->start();*/
-}
+//}
 
-void ThreadPool::setUpConnections(QThread* thread, DownloadTask* task, DownloadItem* item){
+//void ThreadPool::setUpConnections(QThread* thread, DownloadTask* task, DownloadItem* item){
     /*connect(task, &DownloadTask::finished, this, &ThreadPool::onTaskFinished, Qt::QueuedConnection);
 
     connect(task, &DownloadTask::progressChanged, item, &DownloadItem::onProgressChanged, Qt::QueuedConnection);
@@ -139,7 +139,7 @@ void ThreadPool::setUpConnections(QThread* thread, DownloadTask* task, DownloadI
     connect(thread, &QThread::finished, thread, &QObject::deleteLater);
     connect(task, &DownloadTask::finished, task, &QObject::deleteLater);*/
 
-}
+//}
 
 void ThreadPool::onTaskFinished(const QString& url){
     DownloadTask *task = qobject_cast<DownloadTask*>(sender());
@@ -197,7 +197,7 @@ void ThreadPool::returnThreadToPool(QThread* thread)
 
 }
 
-void ThreadPool::onDeleteRequested(DownloadItem* item){
+//void ThreadPool::onDeleteRequested(DownloadItem* item){
     /*QString url = item->getUrl();
     auto it = m_activeTasks.find(url);
 
@@ -221,40 +221,46 @@ void ThreadPool::onDeleteRequested(DownloadItem* item){
     }
 
     removeFromPendingQueue(url);*/
-}
+//}
 
-void ThreadPool::startNewPendingTask(){
-    qDebug() << "m_pendingQueue size: " << m_pendingQueue.size();
-    qDebug() << "m_activeTasks size: " << m_activeTasks.size();
-    if(!m_pendingQueue.isEmpty()){
+//void ThreadPool::startNewPendingTask(){
+    //qDebug() << "m_pendingQueue size: " << m_pendingQueue.size();
+    //qDebug() << "m_activeTasks size: " << m_activeTasks.size();
+    //if(!m_pendingQueue.isEmpty()){
         //DownloadItem *item = m_pendingQueue.dequeue();
         //item->setStatus("downloading");
         //startNewTask(item);
-    }
-}
+    //}
+//}
 
-void ThreadPool::removeFromPendingQueue(const QString& url){
-    QQueue<DownloadItem*> newQueue;
-    while(!m_pendingQueue.isEmpty()){
+//void ThreadPool::removeFromPendingQueue(const QString& url){
+//    QQueue<DownloadItem*> newQueue;
+//    while(!m_pendingQueue.isEmpty()){
         //DownloadItem *item = m_pendingQueue.dequeue();
         //if(item->getUrl() == url){
             //item->deleteLater();
         //}else{
             //newQueue.enqueue(item);
         //}
-    }
+//    }
     //m_pendingQueue = newQueue;
     //startNewPendingTask();
-}
+//}
 
 ThreadPool::~ThreadPool(){
-    /*for(auto& activeTask : m_activeTasks){
-        activeTask.first->quit();
-        activeTask.first->deleteLater();
+    for(auto it = m_busyThreads.begin(); it != m_busyThreads.end(); ++it)
+    {
+        it.key()->quit();
+        it.key()->wait();
+        it.key()->deleteLater();
     }
-    for(auto& pendingQueue : m_pendingQueue){
-        pendingQueue->deleteLater();
-    }*/
+
+    for(auto it : m_idleThreads)
+    {
+        it->quit();
+        it->wait();
+        it->deleteLater();
+    }
 }
 
 

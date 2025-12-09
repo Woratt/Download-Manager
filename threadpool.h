@@ -19,7 +19,7 @@ public:
     ~ThreadPool();
 public slots:
     void onTaskFinished(const QString&);
-    void onDeleteRequested(DownloadItem*);
+    //void onDeleteRequested(DownloadItem*);
     void onTaskPaused();
 signals:
     void taskStarted(DownloadTask*);
@@ -27,19 +27,16 @@ signals:
     void taskPaused(DownloadTask*);
 private:
     int m_maxThread;
-    QHash<QString, QPair<QThread*, DownloadTask*>> m_activeTasks;
-    //QQueue<DownloadItem*> m_pendingQueue;
-
     QVector<QThread*> m_idleThreads;
     QHash<QThread*, DownloadTask*> m_busyThreads;
 
     QQueue<DownloadTask*> m_pendingQueue;
 
-    void startNewTask(DownloadItem*);
+    //void startNewTask(DownloadItem*);
     void resumeTask(DownloadItem*);
-    void setUpConnections(QThread*, DownloadTask*, DownloadItem*);
+    //void setUpConnections(QThread*, DownloadTask*, DownloadItem*);
     void removeFromPendingQueue(const QString&);
-    void startNewPendingTask();
+    //void startNewPendingTask();
     void startNextTask();
     void returnThreadToPool(QThread*);
 };
