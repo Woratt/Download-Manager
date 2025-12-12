@@ -15,6 +15,7 @@
 #include <QProcess>
 
 #include "toogle.h"
+#include "downloadtask.h"
 
 class DownloadItemAdapter;
 
@@ -30,20 +31,20 @@ public:
     bool isChecked();
     void pauseDownloadAll(bool);
     void setNotChecked();
-    QString& getStatus();
     bool isFromDB();
     qint64 getResumePos();
-    void setStatus(const QString&);
 public slots:
     void onProgressChanged(qint64 bytesReceived, qint64 bytesTotal);
     void deleteItem();
     void onFinished();
+    void chackWhatStatus(DownloadTask::Status);
 private slots:
     void calculateSpeed();
     void onPauseCheckBox();
     void updateProgressChange();
     void onOpenFileInFolder();
 signals:
+    void statusChanged(DownloadTask::Status);
     void updateProgress();
     void pauseDownload();
     void resumeDownload();
@@ -54,7 +55,6 @@ private:
     QString m_url;
     QString m_dir;
     QString m_sizeFileStr;
-    QString m_status = "downloading";
     qint64 m_lastBytesReceived;
     qint64 m_totalBytesReceived;
     qint64 m_currentSpeed;

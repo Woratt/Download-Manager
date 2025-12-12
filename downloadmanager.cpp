@@ -1,19 +1,19 @@
 #include "downloadmanager.h"
 
 DownloadManager::DownloadManager(QObject *parent) : QObject(parent){
-    m_threadPool = new ThreadPool(2, this);
+    m_threadPool = new ThreadPool(this);
     m_db = new DownloadDatabase(this);
 }
 
 void DownloadManager::startDownload(DownloadItem *item){
     DownloadTask *task = new DownloadTask(item->getUrl(), item->getFilePath());
 
-    connect(item, &DownloadItem::pauseDownload, task, &DownloadTask::pauseDownload, Qt::QueuedConnection);
-    connect(item, &DownloadItem::resumeDownload, task, &DownloadTask::resumeDownload, Qt::QueuedConnection);
-
+    connect(item, &DownloadItem::statusChanged, task, &DownloadTask::setStatus, Qt::QueuedConnection);
     connect(task, &DownloadTask::progressChanged, item, &DownloadItem::onProgressChanged, Qt::QueuedConnection);
+    connect(task, &DownloadTask::statusChanged, m_threadPool, &ThreadPool::chackWhatStatus, Qt::QueuedConnection);
+    connect(task, &DownloadTask::statusChanged, item, &DownloadItem::chackWhatStatus, Qt::QueuedConnection);
 
-    connect(item, &DownloadItem::resumeDownload, this, &DownloadManager::resumeDownload);
+    connect(item, &DownloadItem::ChangedBt, this, &DownloadManager::changeBt);
 
     m_threadPool->addTask(task);
 
@@ -27,16 +27,8 @@ void DownloadManager::pausedDownload(const QString& url){
 void DownloadManager::resumeDownload(){
     DownloadItem *item = qobject_cast<DownloadItem*>(sender());
     DownloadTask *task = m_itemTask[item];
-    /*for(auto it = m_itemTask.begin(); it != m_itemTask.end(); ++it){
-        if(it.key()->getUrl() == url)
-        {
-            //m_threadPool->addTask(it.key());
-            task = it.value();
-            break;
-        }
-    }*/
     if(task){
-        m_threadPool->addTask(task);
+        m_threadPool->resumeDownload(task);
     }
 }
 
@@ -56,8 +48,9 @@ void DownloadManager::changeBt(DownloadItem* item, bool checked){
 
 void DownloadManager::downloadAll(){
     for(auto* item : m_selectedItems){
-        item->pauseDownloadAll(true);
-        item->setNotChecked();
+        DownloadTask *task = m_itemTask[item];
+
+        //task->setStatus(DownloadTask::Status::);
     }
     m_selectedItems.clear();
     emit hideButtons();

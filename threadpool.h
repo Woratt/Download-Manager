@@ -14,13 +14,15 @@ class ThreadPool : public QObject
 {
     Q_OBJECT
 public:
-    explicit ThreadPool(int maxThread = 2, QObject *parent = nullptr);
+    explicit ThreadPool(QObject *parent = nullptr);
     void addTask(DownloadTask*);
     ~ThreadPool();
 public slots:
-    void onTaskFinished(const QString&);
+    void onTaskFinished(DownloadTask*);
     //void onDeleteRequested(DownloadItem*);
-    void onTaskPaused();
+    void resumeDownload(DownloadTask*);
+    void onTaskPaused(DownloadTask*);
+    void chackWhatStatus(DownloadTask::Status);
 signals:
     void taskStarted(DownloadTask*);
     void taskFinished(DownloadTask*);
@@ -32,13 +34,14 @@ private:
 
     QQueue<DownloadTask*> m_pendingQueue;
 
-    //void startNewTask(DownloadItem*);
     void resumeTask(DownloadItem*);
-    //void setUpConnections(QThread*, DownloadTask*, DownloadItem*);
     void removeFromPendingQueue(const QString&);
-    //void startNewPendingTask();
-    void startNextTask();
+    void startNewTask(DownloadTask*);
     void returnThreadToPool(QThread*);
+    void startNextTask();
+
+    void calculateMaxThreads();
+
 };
 
 #endif // THREADPOOL_H
