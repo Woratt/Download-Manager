@@ -15,19 +15,39 @@ class DownloadTask :  public QObject
 {
     Q_OBJECT
 public:
+
+    enum Status {
+        Pending,      // В очікуванні (в черзі)
+        Downloading,  // Завантажується
+        Resumed,
+        ResumedInPending,
+        ResumedInDownloading,
+        Paused,       // На паузі
+        Completed,    // Завершено
+        Error,        // Помилка
+        Cancelled     // Скасовано
+    };
+
     DownloadTask(const QString&, const QString&, QObject *parent = nullptr);
     ~DownloadTask();
-    void startDownload();
     void startNewTask(QThread* thread);
     void resumeFromDB(QThread* thread, qint64);
     void stopDownload();
+    Status getStatus(){return m_status;};
+    //bool isStartedDownload(){return m_isStartedDownload;};
 signals:
     void progressChanged(qint64, qint64);
     void finished(const QString&);
+    void paused();
     void error(const QString&);
+    void statusChanged(DownloadTask::Status);
 public slots:
+    void setStatusPaused();
+    void setStatusResume();
+    void startDownload();
     void pauseDownload();
     void resumeDownload();
+    void setStatus(Status);
 private slots:
     void onReadyRead();
     void onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
@@ -65,12 +85,15 @@ private:
     int m_retryCount{0};
     const int MAX_RETRIES{5};
 
-    bool m_isPaused{false};
-    bool m_isDownloading;
+    //bool m_isPaused{false};
+    //bool m_isDownloading{false};
+    //bool m_isStartedDownload{false};
     bool m_isAborting{false};
     bool m_isHandlingError{false};
 
     void flushBufferAsync();
+
+    Status m_status = Status::Pending;
 
     void handleFailure(const QString& errorContext, bool shouldRetry);
     bool isRetryableError(QNetworkReply::NetworkError);

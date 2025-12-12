@@ -53,7 +53,7 @@ public:
         //item->m_resumePosSize = record.m_resumePosition;
         item->m_currentSpeed = record.m_currentSpeed;
         item->m_isChecked = record.m_isChecked;
-        item->m_status = record.m_status;
+        //item->m_status = record.m_status;
         item->m_fromDB = true;
 
         // Відновлюємо відсотки

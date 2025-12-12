@@ -20,6 +20,23 @@ DownloadTask::DownloadTask(const QString& url, const QString& filePath, QObject 
     connect(m_timeoutTimer, &QTimer::timeout, this, &DownloadTask::onTimeout);
 }
 
+void DownloadTask::setStatus(Status newStatus){
+    if(newStatus != m_status){
+        m_status = newStatus;
+        emit statusChanged(m_status);
+    }
+}
+
+void DownloadTask::setStatusPaused()
+{
+    setStatus(Status::Paused);
+}
+
+void DownloadTask::setStatusResume()
+{
+    setStatus(Status::Resumed);
+}
+
 void DownloadTask::startNewTask(QThread* thread){
     this->moveToThread(thread);
     connect(thread, &QThread::started, this, &DownloadTask::startDownload);
@@ -34,6 +51,9 @@ void DownloadTask::resumeFromDB(QThread* thread, qint64 resPos){
 }
 
 void DownloadTask::startDownload(){
+    setStatus(Status::Downloading);
+    //emit statusChanged(m_status);
+    //m_isStartedDownload = true;
     if (m_outputFile && m_outputFile->isOpen()) {
         m_outputFile->close();
         m_outputFile->deleteLater();
@@ -223,6 +243,8 @@ void DownloadTask::onFinished(){
 
     if (success) {
         qDebug() << "Файл успішно завантажено!";
+        setStatus(Status::Completed);
+        //emit statusChanged(m_status);
         emit finished(m_url);
     } else{
         qDebug() << "Помилка завантаження:" << m_reply->errorString();
@@ -239,12 +261,16 @@ void DownloadTask::stopDownload(){
     if (m_outputFile && m_outputFile->isOpen()) {
         m_outputFile->close();
     }
-
+    setStatus(Status::Cancelled);
+    //emit statusChanged(m_status);
+    emit paused();
     emit finished(m_url);
 }
 
 void DownloadTask::pauseDownload(){
-    m_isPaused = true;
+    //m_isPaused = true;
+    //setStatus(Status::Paused);
+    //emit statusChanged(m_status);
     flushBufferAsync();
     if(m_reply){
         m_reply->abort();
@@ -254,11 +280,14 @@ void DownloadTask::pauseDownload(){
     if (m_outputFile && m_outputFile->isOpen()) {
         m_outputFile->close();
     }
+    emit paused();
 }
 
 void DownloadTask::resumeDownload(){
-    m_isPaused = false;
+    //m_isPaused = false;
     qDebug() << "In resumeDowload\n";
+    //setStatus(Status::Resumed);
+    //emit statusChanged(m_status);
 
     if (!QFile::exists(m_filePath)) {
         emit error("File not found for resume");
@@ -279,6 +308,7 @@ void DownloadTask::resumeDownload(){
     connect(m_reply, &QNetworkReply::downloadProgress, this, &DownloadTask::onDownloadProgress);
     connect(m_reply, &QNetworkReply::finished, this, &DownloadTask::onFinished);
     connect(m_reply, &QNetworkReply::errorOccurred, this, &DownloadTask::onError);
+
 }
 
 bool DownloadTask::isRetryableError(QNetworkReply::NetworkError error){
@@ -329,11 +359,13 @@ void DownloadTask::scheduleRetry(const QString& error){
 }
 
 void DownloadTask::handleFailure(const QString& errorContext, bool shouldRetry){
-    if(m_isPaused) return;
+    if(m_status == Status::Paused) return;
     flushBufferAsync();
     if(shouldRetry && m_retryCount < MAX_RETRIES){
         scheduleRetry(errorContext);
     }else{
+        setStatus(Status::Error);
+        //emit statusChanged(m_status);
         emit error(errorContext + " after " + QString::number(m_retryCount) + " attempts");
         m_retryCount = 0;
     }

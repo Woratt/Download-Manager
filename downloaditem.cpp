@@ -26,7 +26,7 @@ void DownloadItem::setUpUI(){
 
     m_progresSize = new QLabel("0%");
     m_speedDownload = new QLabel("0B/s");
-    m_statusDownload = new QLabel("Download");
+    m_statusDownload = new QLabel("Pending");
     m_sizeFile = new QLabel();
 
     m_mainLayout = new QHBoxLayout(this);
@@ -72,23 +72,54 @@ void DownloadItem::setUpConnections()
 void DownloadItem::onPauseCheckBox()
 {
     if(m_pauseCheckBox->isChecked()){
-        m_statusDownload->setText("Download");
-        setStatus("Downloading");
-        emit resumeDownload();
+        emit statusChanged(DownloadTask::Status::Resumed);
     }else{
-        m_statusDownload->setText("Pause");
-        setStatus("Paused");
-        emit pauseDownload();
+        emit statusChanged(DownloadTask::Status::Paused);
     }
 }
 
 void DownloadItem::pauseDownloadAll(bool checked){
     if(checked){
         m_pauseCheckBox->setChecked(checked);
-        m_statusDownload->setText("Download");
+        emit statusChanged(DownloadTask::Status::Resumed);
     }else{
         m_pauseCheckBox->setChecked(checked);
-        m_statusDownload->setText("Pause");
+        emit statusChanged(DownloadTask::Status::Paused);
+    }
+}
+
+void DownloadItem::chackWhatStatus(DownloadTask::Status status){
+    switch (status) {
+    case DownloadTask::Status::Pending:
+        m_pauseCheckBox->setChecked(true);
+        m_statusDownload->setText("Pending");
+        break;
+    case DownloadTask::Status::Cancelled:
+        m_statusDownload->setText("Cancelled");
+        m_pauseCheckBox->hide();
+        break;
+    case DownloadTask::Status::Error:
+        m_statusDownload->setText("Error");
+        m_pauseCheckBox->hide();
+        break;
+    case DownloadTask::Status::Completed:
+        m_statusDownload->setText("Completed");
+        m_pauseCheckBox->hide();
+        break;
+    case DownloadTask::Status::ResumedInDownloading:
+        m_statusDownload->setText("Downloading");
+        break;
+    case DownloadTask::Status::ResumedInPending:
+        m_statusDownload->setText("Pending");
+        break;
+    case DownloadTask::Status::Paused:
+        m_statusDownload->setText("Paused");
+        break;
+    case DownloadTask::Status::Downloading:
+        m_statusDownload->setText("Downloading");
+        break;
+    default:
+        break;
     }
 }
 
@@ -227,15 +258,10 @@ bool DownloadItem::isChecked(){
 
 void DownloadItem::onFinished(){
     m_timer->deleteLater();
-    setStatus("completed");
 }
 
 DownloadItem::~DownloadItem(){
     m_process->deleteLater();
-}
-
-QString& DownloadItem::getStatus(){
-    return m_status;
 }
 
 bool DownloadItem::isFromDB(){
@@ -244,10 +270,6 @@ bool DownloadItem::isFromDB(){
 
 qint64 DownloadItem::getResumePos(){
     return m_totalBytesReceived;
-}
-
-void DownloadItem::setStatus(const QString& status){
-    m_status = status;
 }
 
 

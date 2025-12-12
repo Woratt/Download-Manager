@@ -1,15 +1,35 @@
 #include "downloadmanager.h"
 
 DownloadManager::DownloadManager(QObject *parent) : QObject(parent){
-    m_threadPool = new ThreadPool(2, this);
+    m_threadPool = new ThreadPool(this);
     m_db = new DownloadDatabase(this);
 }
 
 void DownloadManager::startDownload(DownloadItem *item){
-    m_threadPool->addTask(item);
-    m_items.push_back(item);
+    DownloadTask *task = new DownloadTask(item->getUrl(), item->getFilePath());
+
+    connect(item, &DownloadItem::statusChanged, task, &DownloadTask::setStatus, Qt::QueuedConnection);
+    connect(task, &DownloadTask::progressChanged, item, &DownloadItem::onProgressChanged, Qt::QueuedConnection);
+    connect(task, &DownloadTask::statusChanged, m_threadPool, &ThreadPool::chackWhatStatus, Qt::QueuedConnection);
+    connect(task, &DownloadTask::statusChanged, item, &DownloadItem::chackWhatStatus, Qt::QueuedConnection);
 
     connect(item, &DownloadItem::ChangedBt, this, &DownloadManager::changeBt);
+
+    m_threadPool->addTask(task);
+
+    m_itemTask[item] = task;
+}
+
+void DownloadManager::pausedDownload(const QString& url){
+
+}
+
+void DownloadManager::resumeDownload(){
+    DownloadItem *item = qobject_cast<DownloadItem*>(sender());
+    DownloadTask *task = m_itemTask[item];
+    if(task){
+        m_threadPool->resumeDownload(task);
+    }
 }
 
 void DownloadManager::changeBt(DownloadItem* item, bool checked){
@@ -28,8 +48,9 @@ void DownloadManager::changeBt(DownloadItem* item, bool checked){
 
 void DownloadManager::downloadAll(){
     for(auto* item : m_selectedItems){
-        item->pauseDownloadAll(true);
-        item->setNotChecked();
+        DownloadTask *task = m_itemTask[item];
+
+        //task->setStatus(DownloadTask::Status::);
     }
     m_selectedItems.clear();
     emit hideButtons();
@@ -59,8 +80,8 @@ void DownloadManager::setItemsFromDB(){
     for(auto record : records){
         DownloadItem* item = new DownloadItem(record.m_name, record.m_directory);
         DownloadItemAdapter::updateItemFromRecord(item, record);
-        m_threadPool->addTask(item);
-        m_items.push_back(item);
+        //m_threadPool->addTask(item);
+        //m_items.push_back(item);
 
         connect(item, &DownloadItem::deleteDownload, m_db, &DownloadDatabase::deleteDownload);
 

@@ -1,130 +1,227 @@
 #include "threadpool.h"
 
-ThreadPool::ThreadPool(int maxThread, QObject *parent) : QObject(parent), m_maxThread(maxThread) {}
+ThreadPool::ThreadPool(QObject *parent) : QObject(parent)
+{
+    calculateMaxThreads();
+    for(int i = 0; i < m_maxThread; ++i){
+        QThread *thread = new QThread(this);
+        thread->start();
+        m_idleThreads.append(thread);
+    }
+}
 
-void ThreadPool::addTask(DownloadItem *item){
-    qDebug() << "m_activeTasks size: " << m_activeTasks.size();
-    if(m_activeTasks.contains(item->getUrl())){
-        qDebug() << "Download already in progress:" << item->getUrl();
+void ThreadPool::addTask(DownloadTask *task){
+    qDebug() << "m_idleThreads size: "  << m_idleThreads.size();
+
+    if (!task) {
+        qWarning() << "Cannot add null task";
         return;
     }
 
-    if(m_activeTasks.size() >= m_maxThread){
-        m_pendingQueue.enqueue(item);
-        item->setStatus("pending");
+    for (auto t : m_busyThreads.values()) {
+        if (t == task) {
+            qDebug() << "Task already running";
+            return;
+        }
+    }
+
+    if(!m_idleThreads.isEmpty())
+    {
+        startNewTask(task);
+    }else
+    {
+        m_pendingQueue.enqueue(task);
+    }
+}
+
+void ThreadPool::isStartOrResume()
+{
+    /*qDebug() << "m_pendingQueue size: " << m_pendingQueue.size() << "m_idleThreads size: " << m_idleThreads.size();
+    if(m_pendingQueue.isEmpty() || m_idleThreads.isEmpty())
+    {
+        return;
+    }
+    DownloadTask* task = m_pendingQueue.dequeue();
+    if(task->isStartedDownload())
+    {
+        resumeDownload(task);
+    }else
+    {
+        startNextTask(task);
+    }*/
+}
+
+void ThreadPool::startNewTask(DownloadTask* task){
+    if(m_idleThreads.isEmpty())
+    {
         return;
     }
 
-    startNewTask(item);
+    QThread *thread = m_idleThreads.takeFirst();
+
+    task->moveToThread(thread);
+    m_busyThreads[thread] = task;
+
+    QMetaObject::invokeMethod(task, "startDownload", Qt::QueuedConnection);
+
+    emit taskStarted(task);
 }
 
-void ThreadPool::startNewTask(DownloadItem* item){
-    DownloadTask* task = new DownloadTask(item->getUrl(), item->getFilePath());
-    QThread* thread = new QThread(this);
-
-    setUpConnections(thread, task, item);
-
-    qDebug() << "Status: " << item->getStatus();
-
-    if(item->isFromDB()){
-        if(item->getStatus() == "pending"){
-            m_pendingQueue.enqueue(item);
-            return;
-        }else if(item->getStatus() == "paused"){
-            item->pauseDownloadAll(false);
-        }else if(item->getStatus() == "completed"){
-            item->pauseDownloadAll(false);
-            task->deleteLater();
-            thread->deleteLater();
-            return;
-        }else{
-            task->resumeFromDB(thread, item->getResumePos());
-        }
-    }else{
-        task->startNewTask(thread);
+void ThreadPool::resumeDownload(DownloadTask* task){
+    if(m_idleThreads.isEmpty())
+    {
+        task->setStatus(DownloadTask::Status::ResumedInPending);
+        m_pendingQueue.enqueue(task);
+        return;
+    }else
+    {
+        task->setStatus(DownloadTask::Status::ResumedInDownloading);
     }
 
-    m_activeTasks[item->getUrl()] = QPair<QThread*, DownloadTask*>(thread, task);
-    thread->start();
+    QThread *thread = m_idleThreads.takeFirst();
+    task->moveToThread(thread);
+    m_busyThreads[thread] = task;
+
+    QMetaObject::invokeMethod(task, "resumeDownload", Qt::QueuedConnection);
+
+    emit taskStarted(task);
 }
 
-void ThreadPool::setUpConnections(QThread* thread, DownloadTask* task, DownloadItem* item){
-    connect(task, &DownloadTask::finished, this, &ThreadPool::onTaskFinished, Qt::QueuedConnection);
+void ThreadPool::onTaskPaused(DownloadTask *task){
+    if (!task) return;
 
-    connect(task, &DownloadTask::progressChanged, item, &DownloadItem::onProgressChanged, Qt::QueuedConnection);
-    connect(task, &DownloadTask::finished, item, &DownloadItem::onFinished, Qt::QueuedConnection);
-    connect(item, &DownloadItem::pauseDownload, task, &DownloadTask::pauseDownload, Qt::QueuedConnection);
-    connect(item, &DownloadItem::resumeDownload, task, &DownloadTask::resumeDownload, Qt::QueuedConnection);
-    connect(item, &DownloadItem::deleteDownload, this, &ThreadPool::onDeleteRequested);
 
-    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
-    connect(task, &DownloadTask::finished, task, &QObject::deleteLater);
-
-}
-
-void ThreadPool::onTaskFinished(const QString& url){
-    auto it = m_activeTasks.find(url);
-
-    if(it != m_activeTasks.end()){
-        QThread* thread = it.value().first;
-
-        if(thread && thread->isRunning()){
-            thread->quit();
-        }
-    }
-    m_activeTasks.erase(it);
-
-    startNewPendingTask();
-}
-
-void ThreadPool::onDeleteRequested(DownloadItem* item){
-    QString url = item->getUrl();
-    auto it = m_activeTasks.find(url);
-
-    if(it != m_activeTasks.end()){
-        QThread *thread = it.value().first;
-        DownloadTask *task = it.value().second;
-
-        if(task){
-            task->stopDownload();
-            task->deleteLater();
-        }
-        qDebug() << "m_activeTasks: " << m_activeTasks;
-        if(thread && thread->isRunning()){
-            thread->quit();
-            thread->wait(1000);
-            if(thread->isRunning()) {
-                thread->terminate();
-                thread->wait();
-            }
+    QThread *thread = nullptr;
+    for(auto it = m_busyThreads.begin(); it != m_busyThreads.end(); ++it)
+    {
+        if(it.value() == task)
+        {
+            thread = it.key();
+            break;
         }
     }
 
-    removeFromPendingQueue(url);
+    if(thread)
+    {
+        returnThreadToPool(thread);
+        m_busyThreads.remove(thread);
+
+        QMetaObject::invokeMethod(task, "pauseDownload", Qt::QueuedConnection);
+    }
+
+    emit taskPaused(task);
+
+    //startNextTask();
 }
 
-void ThreadPool::startNewPendingTask(){
-    qDebug() << "m_pendingQueue size: " << m_pendingQueue.size();
-    qDebug() << "m_activeTasks size: " << m_activeTasks.size();
-    if(!m_pendingQueue.isEmpty()){
-        DownloadItem *item = m_pendingQueue.dequeue();
-        item->setStatus("downloading");
-        startNewTask(item);
+void ThreadPool::chackWhatStatus(DownloadTask::Status status){
+    DownloadTask* task = qobject_cast<DownloadTask*>(sender());
+    switch (status) {
+    case DownloadTask::Status::Resumed:
+        resumeDownload(task);
+        qDebug() << "Resumed";
+        break;
+    case DownloadTask::Status::Completed:
+        onTaskFinished(task);
+        startNextTask();
+        qDebug() << "Completed";
+        break;
+    case DownloadTask::Status::Error:
+        onTaskFinished(task);
+        startNextTask();
+        qDebug() << "Error";
+        break;
+    case DownloadTask::Status::Cancelled:
+        onTaskFinished(task);
+        startNextTask();
+        qDebug() << "Cancelled";
+        break;
+    case DownloadTask::Status::Paused:
+        onTaskPaused(task);
+        startNextTask();
+        qDebug() << "Paused";
+        break;
+    case DownloadTask::Status::Pending:
+        m_pendingQueue.enqueue(task);
+        qDebug() << "Pending";
+        break;
     }
 }
 
-void ThreadPool::removeFromPendingQueue(const QString& url){
-    QQueue<DownloadItem*> newQueue;
-    while(!m_pendingQueue.isEmpty()){
-        DownloadItem *item = m_pendingQueue.dequeue();
-        if(item->getUrl() == url){
-            item->deleteLater();
-        }else{
-            newQueue.enqueue(item);
+void ThreadPool::startNextTask()
+{
+    if(m_pendingQueue.isEmpty())
+    {
+        return;
+    }
+    DownloadTask *task = m_pendingQueue.dequeue();
+
+    if(task->getStatus() == DownloadTask::Status::Pending)
+    {
+        startNewTask(task);
+    }else if(task->getStatus() == DownloadTask::Status::ResumedInPending)
+    {
+        resumeDownload(task);
+    }else
+    {
+        m_pendingQueue.enqueue(task);
+    }
+}
+
+void ThreadPool::onTaskFinished(DownloadTask *task){
+    if (!task) return;
+
+    QThread *thread = nullptr;
+    for(auto it = m_busyThreads.begin(); it != m_busyThreads.end(); ++it){
+        if(it.value() == task){
+            thread = it.key();
+            break;
         }
     }
-    m_pendingQueue = newQueue;
-    startNewPendingTask();
+
+    if(thread){
+        returnThreadToPool(thread);
+        m_busyThreads.remove(thread);
+    }
+
+    emit taskFinished(task);
+}
+
+void ThreadPool::returnThreadToPool(QThread* thread)
+{
+    if(!thread)
+    {
+        return;
+    }
+
+    if(!m_idleThreads.contains(thread))
+    {
+        m_idleThreads.append(thread);
+    }
+
+}
+
+void ThreadPool::calculateMaxThreads(){
+    int cores = QThread::idealThreadCount();
+    if (cores <= 0) cores = 2;
+
+    m_maxThread = qBound(2, static_cast<int>(cores / 4), 8);
+}
+
+ThreadPool::~ThreadPool(){
+    for(auto it = m_busyThreads.begin(); it != m_busyThreads.end(); ++it)
+    {
+        it.key()->quit();
+        it.key()->wait();
+        it.key()->deleteLater();
+    }
+
+    for(auto it : m_idleThreads)
+    {
+        it->quit();
+        it->wait();
+        it->deleteLater();
+    }
 }
 
 
