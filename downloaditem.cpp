@@ -23,6 +23,7 @@ void DownloadItem::setUpUI(){
 
     m_openInFolderButton = new QPushButton("Open in Folder");
     m_deleteButton = new QPushButton("Delete");
+    m_cancellButton = new QPushButton("Cancell");
 
     m_progresSize = new QLabel("0%");
     m_speedDownload = new QLabel("0B/s");
@@ -36,6 +37,7 @@ void DownloadItem::setUpUI(){
 
     m_upperLayout->addWidget(m_nameFile);
     m_upperLayout->addWidget(m_openInFolderButton);
+    m_upperLayout->addWidget(m_cancellButton);
     m_upperLayout->addWidget(m_deleteButton);
 
     m_lowerLayout->addWidget(m_pauseCheckBox);
@@ -61,7 +63,13 @@ void DownloadItem::setUpConnections()
     connect(this, &DownloadItem::updateProgress, this, &DownloadItem::updateProgressChange);
 
     connect(m_openInFolderButton, &QPushButton::clicked, this, &DownloadItem::onOpenFileInFolder);
-    connect(m_deleteButton, &QPushButton::clicked, this, &DownloadItem::deleteItem);
+    connect(m_cancellButton, &QPushButton::clicked, this, [=](){
+        emit statusChanged(DownloadTask::Status::Cancelled);
+    });
+    connect(m_deleteButton, &QPushButton::clicked, this, [=](){
+        emit statusChanged(DownloadTask::Status::Cancelled);
+        deleteItem();
+    });
 
     connect(m_checkBox, &QCheckBox::checkStateChanged, this, [=](bool checked){
         m_isChecked = checked;

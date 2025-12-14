@@ -49,8 +49,6 @@ void DownloadManager::changeBt(DownloadItem* item, bool checked){
 void DownloadManager::downloadAll(){
     for(auto* item : m_selectedItems){
         DownloadTask *task = m_itemTask[item];
-
-        //task->setStatus(DownloadTask::Status::);
     }
     m_selectedItems.clear();
     emit hideButtons();

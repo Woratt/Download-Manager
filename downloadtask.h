@@ -20,12 +20,16 @@ public:
         Pending,      // В очікуванні (в черзі)
         Downloading,  // Завантажується
         Resumed,
+        StartNewTask,
         ResumedInPending,
         ResumedInDownloading,
-        Paused,       // На паузі
+        Paused,        // На паузі
+        PausedNew,
+        PausedResume,
         Completed,    // Завершено
         Error,        // Помилка
-        Cancelled     // Скасовано
+        Cancelled,     // Скасовано
+        Deleted
     };
 
     DownloadTask(const QString&, const QString&, QObject *parent = nullptr);
@@ -34,7 +38,6 @@ public:
     void resumeFromDB(QThread* thread, qint64);
     void stopDownload();
     Status getStatus(){return m_status;};
-    //bool isStartedDownload(){return m_isStartedDownload;};
 signals:
     void progressChanged(qint64, qint64);
     void finished(const QString&);
@@ -42,8 +45,6 @@ signals:
     void error(const QString&);
     void statusChanged(DownloadTask::Status);
 public slots:
-    void setStatusPaused();
-    void setStatusResume();
     void startDownload();
     void pauseDownload();
     void resumeDownload();

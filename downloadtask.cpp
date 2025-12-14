@@ -27,16 +27,6 @@ void DownloadTask::setStatus(Status newStatus){
     }
 }
 
-void DownloadTask::setStatusPaused()
-{
-    setStatus(Status::Paused);
-}
-
-void DownloadTask::setStatusResume()
-{
-    setStatus(Status::Resumed);
-}
-
 void DownloadTask::startNewTask(QThread* thread){
     this->moveToThread(thread);
     connect(thread, &QThread::started, this, &DownloadTask::startDownload);
@@ -290,7 +280,9 @@ void DownloadTask::resumeDownload(){
     //emit statusChanged(m_status);
 
     if (!QFile::exists(m_filePath)) {
-        emit error("File not found for resume");
+        //setStatus(Status::StartNewTask);
+        startDownload();
+        //emit error("File not found for resume");
         return;
     }
 

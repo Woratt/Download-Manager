@@ -75,6 +75,7 @@ private:
     Toogle *m_pauseCheckBox;
     QPushButton *m_deleteButton;
     QPushButton *m_openInFolderButton;
+    QPushButton *m_cancellButton;
     QLabel *m_nameFile;
     QLabel *m_progresSize;
     QLabel *m_speedDownload;
