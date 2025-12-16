@@ -23,15 +23,15 @@ class DownloadItem : public QWidget
 {
     Q_OBJECT
 public:
-    DownloadItem(const QString&, const QString&, QWidget* parent = nullptr);
+    DownloadItem(const QString&, const QString&, QWidget* parent = nullptr, const QString& name = "");
     ~DownloadItem();
     QString getUrl();
     QString getFilePath();
-    QString getDir();
     bool isChecked();
     void pauseDownloadAll(bool);
     void setNotChecked();
     bool isFromDB();
+    void setFileName(const QString&);
     qint64 getResumePos();
 public slots:
     void onProgressChanged(qint64 bytesReceived, qint64 bytesTotal);
@@ -50,10 +50,11 @@ signals:
     void resumeDownload();
     void deleteDownload(DownloadItem*);
     void ChangedBt(DownloadItem*, bool);
+    void finishedDownload();
 private:
     QString m_nameFileStr;
+    QString m_filePath;
     QString m_url;
-    QString m_dir;
     QString m_sizeFileStr;
     qint64 m_lastBytesReceived;
     qint64 m_totalBytesReceived;

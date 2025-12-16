@@ -13,7 +13,7 @@ public:
         // Основна інформація
         record.m_name = item.m_nameFileStr;
         record.m_url = item.m_url;
-        record.m_directory = item.m_dir;
+        //record.m_directory = item.m_dir;
 
         // Прогрес
         record.m_totalBytes = item.m_bytesTotal;
@@ -47,7 +47,7 @@ public:
     static void updateItemFromRecord(DownloadItem* item, const DownloadRecord& record){
         item->m_nameFileStr = record.m_name;
         item->m_url = record.m_url;
-        item->m_dir = record.m_directory;
+        //item->m_dir = record.m_directory;
         item->m_bytesTotal = record.m_totalBytes;
         item->m_totalBytesReceived = record.m_downloadedBytes;
         //item->m_resumePosSize = record.m_resumePosition;

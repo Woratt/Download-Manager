@@ -1,11 +1,15 @@
 #include "downloaditem.h"
 
-DownloadItem::DownloadItem(const QString& url, const QString& dir, QWidget *parent) : QWidget(parent),
+DownloadItem::DownloadItem(const QString& url, const QString& filePath, QWidget *parent, const QString& name) : QWidget(parent),
                                                                                     m_url(url),
-                                                                                    m_dir(dir),
-                                                                                    m_nameFileStr(getFileNameFromUrl(url)),
+                                                                                    m_filePath(filePath),
                                                                                     m_lastBytesReceived(0),
                                                                                     m_currentSpeed(0){
+    if(name.isEmpty()){
+        m_nameFileStr = getFileNameFromUrl(url);
+    }else{
+        m_nameFileStr = name;
+    }
     m_process = new QProcess(this);
     setUpUI();
     setUpConnections();
@@ -105,14 +109,17 @@ void DownloadItem::chackWhatStatus(DownloadTask::Status status){
     case DownloadTask::Status::Cancelled:
         m_statusDownload->setText("Cancelled");
         m_pauseCheckBox->hide();
+        emit finishedDownload();
         break;
     case DownloadTask::Status::Error:
         m_statusDownload->setText("Error");
         m_pauseCheckBox->hide();
+        emit finishedDownload();
         break;
     case DownloadTask::Status::Completed:
         m_statusDownload->setText("Completed");
         m_pauseCheckBox->hide();
+        emit finishedDownload();
         break;
     case DownloadTask::Status::ResumedInDownloading:
         m_statusDownload->setText("Downloading");
@@ -171,16 +178,18 @@ void DownloadItem::updateSpeedString(){
     m_speedDownload->setText(speedText);
 }
 
+void DownloadItem::setFileName(const QString& newFileName)
+{
+    m_nameFileStr = newFileName;
+    m_nameFile->setText(m_nameFileStr);
+}
+
 QString DownloadItem::getUrl(){
     return m_url;
 }
 
 QString DownloadItem::getFilePath(){
-    return m_dir + "/" + m_nameFileStr;
-}
-
-QString DownloadItem::getDir(){
-    return m_dir;
+    return m_filePath;
 }
 
 void DownloadItem::onProgressChanged(qint64 bytesReceived, qint64 bytesTotal){

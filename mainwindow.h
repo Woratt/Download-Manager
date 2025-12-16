@@ -15,8 +15,10 @@
 #include <QTableWidget>
 #include <QList>
 #include <QListWidget>
+#include <QInputDialog>
 
 #include "downloadmanager.h"
+#include "downloadtypes.h"
 
 class MainWindow : public QMainWindow
 {
@@ -33,6 +35,8 @@ private:
     // UI and connections functions
     void setUpUI();
     void setUpConnections();
+    QString askForFileAction(const QString&);
+    DownloadTypes::UserChoice showConflictDialog(const QString &url, DownloadTypes::ConflictType type);
 
     // Network
     DownloadManager *m_downloadManager;
@@ -65,5 +69,6 @@ private slots:
     void deleteDownloadItem(DownloadItem*);
 public slots:
     void addDownloadItem(DownloadItem*);
+    void handleDownloadConflicts(const QString &url, const DownloadTypes::ConflictResult &conflict);
 };
 #endif // MAINWINDOW_H

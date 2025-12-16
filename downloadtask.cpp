@@ -42,8 +42,6 @@ void DownloadTask::resumeFromDB(QThread* thread, qint64 resPos){
 
 void DownloadTask::startDownload(){
     setStatus(Status::Downloading);
-    //emit statusChanged(m_status);
-    //m_isStartedDownload = true;
     if (m_outputFile && m_outputFile->isOpen()) {
         m_outputFile->close();
         m_outputFile->deleteLater();

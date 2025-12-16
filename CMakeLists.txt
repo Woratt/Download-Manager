@@ -21,6 +21,7 @@ qt_add_executable(DownloadManager
     downloaddatabase.h downloaddatabase.cpp
     downloadrecord.h downloadrecord.cpp
     downloaditemadapter.h downloaditemadapter.cpp
+    downloadtypes.h
 )
 
 target_link_libraries(DownloadManager

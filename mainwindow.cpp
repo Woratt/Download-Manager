@@ -10,7 +10,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_downloadManager = new DownloadManager(this);
 
-    m_dir = QDir::homePath();
     setUpUI();
     setUpConnections();
 
@@ -69,7 +68,7 @@ void MainWindow::setUpConnections(){
 
     connect(m_browseButton, &QPushButton::clicked, this, &MainWindow::onClickBrowseButton);
 
-    connect(this, &MainWindow::startDownload, m_downloadManager, &DownloadManager::startDownload);
+    connect(m_downloadManager, &DownloadManager::downloadReadyToAdd, this, &MainWindow::addDownloadItem);
     connect(this, &MainWindow::close, m_downloadManager, &DownloadManager::saveAll);
 
     connect(m_downloadManager, &DownloadManager::showButtons, this, [=](){
@@ -79,10 +78,81 @@ void MainWindow::setUpConnections(){
         setLayoutForSelectedItemsBtVisible(false);
     });
     connect(m_downloadManager, &DownloadManager::setDownloadItemFromDB, this, &MainWindow::addDownloadItem);
+    connect(m_downloadManager, &DownloadManager::conflictsDetected, this, &MainWindow::handleDownloadConflicts);
 
     connect(m_downloadAllItemsBt, &QPushButton::clicked, m_downloadManager, &DownloadManager::downloadAll);
     connect(m_pauseAllItemsBt, &QPushButton::clicked, m_downloadManager, &DownloadManager::pauseAll);
     connect(m_deleteAllItemsBt, &QPushButton::clicked, m_downloadManager, &DownloadManager::deleteAll);
+
+}
+
+void MainWindow::handleDownloadConflicts(const QString &url, const DownloadTypes::ConflictResult &conflict){
+    qDebug() << conflict.type;
+    DownloadTypes::UserChoice choice = showConflictDialog(url, conflict.type);
+
+    m_downloadManager->processDownloadRequest(url, m_dir, choice);
+
+}
+
+DownloadTypes::UserChoice MainWindow::showConflictDialog(const QString &url, DownloadTypes::ConflictType type) {
+
+    DownloadTypes::UserChoice choice;
+    choice.action = DownloadTypes::Cancel;
+
+    // Просте питання
+    QString question;
+    switch (type) {
+    case DownloadTypes::FileExists:
+        question = "File already exists. Download and replace?";
+        break;
+    case DownloadTypes::UrlDownloading:
+        question = "URL already downloading. Download another copy?";
+        break;
+    case DownloadTypes::BothConflicts:
+        question = "File exists and URL downloading. Download anyway?";
+        break;
+    case DownloadTypes::NoConflict:
+        question = "Download this file?";
+        break;
+    }
+
+    QString message = QString("%1\n\nURL: %2").arg(question).arg(url);
+
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        "Download Manager",
+        message,
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No
+        );
+
+    if (reply == QMessageBox::Yes) {
+        choice.action = DownloadTypes::Download;
+
+        // Якщо конфлікт файлу, питаємо чи перейменувати
+        if (type == DownloadTypes::FileExists || type == DownloadTypes::BothConflicts) {
+            QMessageBox renameBox;
+            renameBox.setWindowTitle("File Name");
+            renameBox.setText("Do you want to rename the file?");
+            renameBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+            renameBox.setDefaultButton(QMessageBox::No);
+
+            if (renameBox.exec() == QMessageBox::Yes) {
+                choice.action = DownloadTypes::Undetermined;
+                QString newName = QInputDialog::getText(
+                    this, "New Name", "Enter file name:", QLineEdit::Normal, ""
+                    );
+                if (!newName.isEmpty()) {
+                    choice.newFileName = newName;
+                    choice.action = DownloadTypes::DownloadWithNewName;
+                } else {
+                    choice.action = DownloadTypes::Download; // Повертаємо до Download
+                }
+            }
+        }
+    }
+
+    return choice;
 }
 
 void MainWindow::onClickDownloadButton(){
@@ -100,10 +170,41 @@ void MainWindow::onClickDownloadButton(){
 
     m_urlInput->clear();
 
-    DownloadItem *item = new DownloadItem(url, m_dir, this);
-    addDownloadItem(item);
+    DownloadTypes::UserChoice choice;
 
-    emit startDownload(item);
+    m_downloadManager->processDownloadRequest(url, m_dir, choice);
+}
+
+QString MainWindow::askForFileAction(const QString &originalPath) {
+    /*QMessageBox msgBox;
+    msgBox.setWindowTitle("File name conflict");
+    msgBox.setText(QString("File '%1' exists.").arg(info.fileName()));
+    msgBox.setInformativeText("Select an action:");
+
+    QPushButton *replaceBtn = msgBox.addButton("Replace", QMessageBox::DestructiveRole);
+    QPushButton *renameBtn = msgBox.addButton("Rename", QMessageBox::ActionRole);
+    QPushButton *cancelBtn = msgBox.addButton("Cencelled", QMessageBox::RejectRole);
+
+    msgBox.exec();
+
+    if (msgBox.clickedButton() == replaceBtn) {
+        QString fileName = info.fileName();
+        return fileName;
+    } else if (msgBox.clickedButton() == renameBtn) {
+        bool ok;
+        QString newName = QInputDialog::getText(nullptr,
+                                                "Rename file",
+                                                "Enter a new file name:",
+                                                QLineEdit::Normal,
+                                                info.fileName(),
+                                                &ok);
+
+        if (ok && !newName.isEmpty()) {
+            return newName + "." + info.suffix();
+        }
+    }
+
+    return QString();*/
 }
 
 void MainWindow::onClickBrowseButton(){

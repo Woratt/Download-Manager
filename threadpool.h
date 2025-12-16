@@ -19,7 +19,6 @@ public:
     ~ThreadPool();
 public slots:
     void onTaskFinished(DownloadTask*);
-    //void onDeleteRequested(DownloadItem*);
     void resumeDownload(DownloadTask*);
     void onTaskPaused(DownloadTask*);
     void chackWhatStatus(DownloadTask::Status);

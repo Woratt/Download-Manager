@@ -5,6 +5,116 @@ DownloadManager::DownloadManager(QObject *parent) : QObject(parent){
     m_db = new DownloadDatabase(this);
 }
 
+void DownloadManager::processDownloadRequest(const QString &url, const QString &saveDir, const DownloadTypes::UserChoice &userChoice){
+    QString filePath = createDownloadPath(url, saveDir, userChoice.newFileName);
+
+
+    DownloadTypes::ConflictResult result = checkForConflicts(url, saveDir, userChoice.newFileName);
+
+    if(result.type == DownloadTypes::NoConflict || userChoice.action == DownloadTypes::Download ||
+        (userChoice.action == DownloadTypes::DownloadWithNewName && result.type == DownloadTypes::UrlDownloading)){
+        createAndStartDownload(url, filePath, userChoice.newFileName);
+    }else if(userChoice.action == DownloadTypes::Cancel){
+
+    }else{
+        emit conflictsDetected(url, result);
+    }
+}
+
+DownloadTypes::ConflictResult DownloadManager::checkForConflicts(const QString &url, const QString &saveDir, const QString &suggestedName)
+{
+    DownloadTypes::ConflictResult result;
+
+    result.filePath = createDownloadPath(url, saveDir, suggestedName);
+
+    bool fileExists = QFile::exists(result.filePath);
+
+    result.existingDownloads = m_urlsDownloading.contains(url);
+
+    if (fileExists && result.existingDownloads) {
+        result.type = DownloadTypes::BothConflicts;
+    } else if (fileExists) {
+        result.type = DownloadTypes::FileExists;
+    } else if (result.existingDownloads) {
+        result.type = DownloadTypes::UrlDownloading;
+    } else {
+        result.type = DownloadTypes::NoConflict;
+    }
+    return result;
+}
+
+
+QString DownloadManager::createDownloadPath(const QString &url,
+                                            const QString &saveDir,
+                                            const QString &suggestedName) {
+    QDir dir(saveDir);
+
+    // Визначити ім'я файлу
+    QString fileName;
+
+    if (!suggestedName.isEmpty()) {
+        fileName = suggestedName;
+        QUrl qurl(url);
+        QString path = qurl.path();
+        QFileInfo info(path);
+        fileName += ("." + info.suffix());
+    } else {
+        // Спробувати витягти з URL
+        QUrl qurl(url);
+        QString path = qurl.path();
+        if (!path.isEmpty()) {
+            QFileInfo info(path);
+            fileName = info.fileName();
+        }
+
+        // Якщо не вийшло - згенерувати
+        if (fileName.isEmpty()) {
+            fileName = QString("download_%1")
+            .arg(QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss"));
+        }
+    }
+
+    // Перевірити розширення
+    QFileInfo fileInfo(fileName);
+    if (fileInfo.suffix().isEmpty()) {
+        fileName += ".bin"; // або визначити по Content-Type
+    }
+
+    return dir.absoluteFilePath(fileName);
+}
+
+
+
+/*DownloadManager::ConflictInfo DownloadManager::checkConflicts(
+    const QString &url, const QString &filePath) {
+
+    ConflictInfo info;
+
+    // 1. Перевірити файл
+    info.fileExists = QFile::exists(filePath);
+
+    // 2. Перевірити активні завантаження
+    for (auto it = m_itemTask.begin(); it != m_itemTask.end(); ++it) {
+        if (it.key()->getUrl() == url) {
+            info.existingItems.append(it.key());
+        }
+    }
+
+    return info;
+}*/
+
+void DownloadManager::createAndStartDownload(const QString &url, const QString &filePath, const QString& nameOfFile) {
+    // 1. Створити DownloadItem
+    DownloadItem *item = new DownloadItem(url, filePath, nullptr, nameOfFile);
+    m_items.push_back(item);
+
+    // 2. Створити та запустити завантаження
+    startDownload(item);
+
+    // 3. Сповістити UI
+    emit downloadReadyToAdd(item);
+}
+
 void DownloadManager::startDownload(DownloadItem *item){
     DownloadTask *task = new DownloadTask(item->getUrl(), item->getFilePath());
 
@@ -12,25 +122,29 @@ void DownloadManager::startDownload(DownloadItem *item){
     connect(task, &DownloadTask::progressChanged, item, &DownloadItem::onProgressChanged, Qt::QueuedConnection);
     connect(task, &DownloadTask::statusChanged, m_threadPool, &ThreadPool::chackWhatStatus, Qt::QueuedConnection);
     connect(task, &DownloadTask::statusChanged, item, &DownloadItem::chackWhatStatus, Qt::QueuedConnection);
+    connect(item, &DownloadItem::finishedDownload, this, &DownloadManager::finished);
 
     connect(item, &DownloadItem::ChangedBt, this, &DownloadManager::changeBt);
 
     m_threadPool->addTask(task);
 
     m_itemTask[item] = task;
+    m_urlsDownloading.append(item->getUrl());
 }
 
-void DownloadManager::pausedDownload(const QString& url){
-
+void DownloadManager::finished(){
+    DownloadItem *item = qobject_cast<DownloadItem*>(sender());
+    m_urlsDownloading.removeOne(item->getUrl());
 }
 
-void DownloadManager::resumeDownload(){
+
+/*void DownloadManager::resumeDownload(){
     DownloadItem *item = qobject_cast<DownloadItem*>(sender());
     DownloadTask *task = m_itemTask[item];
     if(task){
         m_threadPool->resumeDownload(task);
     }
-}
+}*/
 
 void DownloadManager::changeBt(DownloadItem* item, bool checked){
     if(checked && !m_selectedItems.contains(item)){

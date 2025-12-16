@@ -17,18 +17,18 @@ class DownloadTask :  public QObject
 public:
 
     enum Status {
-        Pending,      // В очікуванні (в черзі)
-        Downloading,  // Завантажується
+        Pending,
+        Downloading,
         Resumed,
         StartNewTask,
         ResumedInPending,
         ResumedInDownloading,
-        Paused,        // На паузі
+        Paused,
         PausedNew,
         PausedResume,
-        Completed,    // Завершено
-        Error,        // Помилка
-        Cancelled,     // Скасовано
+        Completed,
+        Error,
+        Cancelled,
         Deleted
     };
 
@@ -86,9 +86,6 @@ private:
     int m_retryCount{0};
     const int MAX_RETRIES{5};
 
-    //bool m_isPaused{false};
-    //bool m_isDownloading{false};
-    //bool m_isStartedDownload{false};
     bool m_isAborting{false};
     bool m_isHandlingError{false};
 
