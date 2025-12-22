@@ -20,6 +20,24 @@ DownloadTask::DownloadTask(const QString& url, const QString& filePath, QObject 
     connect(m_timeoutTimer, &QTimer::timeout, this, &DownloadTask::onTimeout);
 }
 
+void DownloadTask::updateFromDb(const DownloadRecord &record){
+    m_totalBytesWritten = record.m_downloadedBytes;
+    QString status = record.m_status;
+    if (record.m_status == "pending") m_status = DownloadTask::Pending;
+    if (record.m_status == "downloading") m_status = DownloadTask::Downloading;
+    if (record.m_status == "resumed") m_status = DownloadTask::Resumed;
+    if (record.m_status == "start_new_task") m_status = DownloadTask::StartNewTask;
+    if (record.m_status == "resumed_in_pending") m_status = DownloadTask::ResumedInPending;
+    if (record.m_status == "resumed_in_downloading") m_status = DownloadTask::ResumedInDownloading;
+    if (record.m_status == "paused") m_status = DownloadTask::Paused;
+    if (record.m_status == "paused_new") m_status = DownloadTask::PausedNew;
+    if (record.m_status == "paused_resume") m_status = DownloadTask::PausedResume;
+    if (record.m_status == "completed") m_status = DownloadTask::Completed;
+    if (record.m_status == "error") m_status = DownloadTask::Error;
+    if (record.m_status == "cancelled") m_status = DownloadTask::Cancelled;
+    if (record.m_status == "deleted") m_status = DownloadTask::Deleted;
+}
+
 void DownloadTask::setStatus(Status newStatus){
     if(newStatus != m_status){
         m_status = newStatus;
@@ -32,12 +50,35 @@ void DownloadTask::startNewTask(QThread* thread){
     connect(thread, &QThread::started, this, &DownloadTask::startDownload);
 }
 
-void DownloadTask::resumeFromDB(QThread* thread, qint64 resPos){
+void DownloadTask::createAndPrepareFile(qint64 totalBytes, QString &errorMessage){
+    QFileInfo fileInfo(m_filePath);
+
+    QStorageInfo storage(fileInfo.absolutePath());
+
+    if (storage.bytesAvailable() < totalBytes) {
+        errorMessage = "Недостатньо вільного місця на диску.";
+        return;
+    }
+
     m_outputFile = new QFile(m_filePath, this);
-    m_resumeDownloadPos = resPos;
-    m_totalBytesWritten = m_resumeDownloadPos;
-    this->moveToThread(thread);
-    connect(thread, &QThread::started, this, &DownloadTask::resumeDownload);
+
+    if(totalBytes == 0){
+        return;
+    }
+
+    if (!m_outputFile->open(QIODevice::ReadWrite)) {
+        errorMessage = "Не вдалося відкрити файл для запису: " + m_outputFile->errorString();
+        return;
+    }
+
+    // 4. Pre-allocation (Резервування місця)
+    if (!m_outputFile->resize(totalBytes)) {
+        errorMessage = "Помилка при резервуванні місця: " + m_outputFile->errorString();
+        m_outputFile->close();
+        return;
+    }
+
+    qDebug() << "Файл підготовлено. Розмір:" << m_outputFile->size() << "байт.";
 }
 
 void DownloadTask::startDownload(){
@@ -48,14 +89,19 @@ void DownloadTask::startDownload(){
         m_outputFile = nullptr;
     }
 
-    m_outputFile = new QFile(m_filePath, this);
-
-    if(!m_outputFile->open(QIODevice::WriteOnly)){
-        qDebug() << "Помилка Не вдалося створити файл: " + m_filePath << "\n";
-        return;
-    }
-
     m_reply = m_manager->get(QNetworkRequest(m_url));
+    connect(m_reply, &QNetworkReply::metaDataChanged, this, [this]() {
+        QVariant contentLengthVar = m_reply->header(QNetworkRequest::ContentLengthHeader);
+        qint64 totalBytes = contentLengthVar.toLongLong();
+
+        QString error;
+        createAndPrepareFile(totalBytes, error);
+
+        if (!m_outputFile) {
+            m_reply->abort();
+            qDebug() << "Помилка:" << error;
+        }
+    });
 
     m_timeoutTimer->start(m_timeoutSeconds * 1000);
 
@@ -92,7 +138,6 @@ void DownloadTask::flushBufferAsync(){
 
     if(bytesWritten == -1){
         qDebug() << "Write error:" << m_outputFile->errorString();
-        emit error(m_outputFile->errorString());
         m_isWriting = false;
         return;
     }
@@ -168,9 +213,6 @@ void DownloadTask::adjustBufferSize(){
     if (abs(newBufferSize - m_bufferCapacity) > 16 * 1024) {
         m_bufferCapacity = newBufferSize;
 
-        qDebug() << "🔄 Buffer adapted:" << (m_bufferCapacity / 1024) << "KB"
-                 << "Speed:" << (m_currentSpeed / 1024 / 1024) << "MB/s";
-
         if (m_currentBuffer) m_currentBuffer->reserve(m_bufferCapacity);
         if (m_writeBuffer) m_writeBuffer->reserve(m_bufferCapacity);
     }
@@ -195,14 +237,10 @@ void DownloadTask::adjustTimeout() {
         m_currentTimeout = newTimeout;
         m_timeoutSeconds = newTimeout;
 
-        qDebug() << "⏱️ Timeout adapted:" << m_timeoutSeconds << "seconds"
-                 << "Speed:" << (m_currentSpeed / 1024 / 1024) << "MB/s";
-
         if (m_timeoutTimer->isActive()) {
             m_timeoutTimer->start(m_timeoutSeconds * 1000);
         }
     }
-
 }
 
 void DownloadTask::onFinished(){
@@ -232,11 +270,8 @@ void DownloadTask::onFinished(){
     if (success) {
         qDebug() << "Файл успішно завантажено!";
         setStatus(Status::Completed);
-        //emit statusChanged(m_status);
-        emit finished(m_url);
     } else{
         qDebug() << "Помилка завантаження:" << m_reply->errorString();
-        emit error(m_reply->errorString());
     }
 }
 
@@ -250,43 +285,47 @@ void DownloadTask::stopDownload(){
         m_outputFile->close();
     }
     setStatus(Status::Cancelled);
-    //emit statusChanged(m_status);
-    emit paused();
-    emit finished(m_url);
 }
 
 void DownloadTask::pauseDownload(){
-    //m_isPaused = true;
-    //setStatus(Status::Paused);
-    //emit statusChanged(m_status);
-    flushBufferAsync();
-    if(m_reply){
+    if(m_reply) {
+        m_reply->disconnect(this);
         m_reply->abort();
     }
-    m_resumeDownloadPos = m_totalBytesWritten;
+
+    if (!m_currentBuffer->isEmpty()) {
+        m_writeBuffer->append(*m_currentBuffer);
+        m_currentBuffer->clear();
+    }
 
     if (m_outputFile && m_outputFile->isOpen()) {
+        if (!m_writeBuffer->isEmpty()) {
+            m_outputFile->write(*m_writeBuffer);
+            m_writeBuffer->clear();
+        }
+        m_outputFile->flush();
         m_outputFile->close();
+        m_resumeDownloadPos = m_totalBytesWritten;
     }
+
     emit paused();
 }
 
 void DownloadTask::resumeDownload(){
-    //m_isPaused = false;
-    qDebug() << "In resumeDowload\n";
-    //setStatus(Status::Resumed);
-    //emit statusChanged(m_status);
 
     if (!QFile::exists(m_filePath)) {
-        //setStatus(Status::StartNewTask);
         startDownload();
-        //emit error("File not found for resume");
         return;
     }
 
-    if(m_outputFile && !m_outputFile->isOpen()){
-        m_outputFile->open(QIODevice::WriteOnly | QIODevice::Append);
+    if(!m_outputFile){
+        m_outputFile = new QFile(m_filePath, this);
     }
+
+    if(m_outputFile && !m_outputFile->isOpen()){
+        m_outputFile->open(QIODevice::ReadWrite);
+    }
+    m_outputFile->seek(m_totalBytesWritten);
 
     QNetworkRequest request(m_url);
     QString range = QString("bytes=%1-").arg(m_resumeDownloadPos);
@@ -355,8 +394,6 @@ void DownloadTask::handleFailure(const QString& errorContext, bool shouldRetry){
         scheduleRetry(errorContext);
     }else{
         setStatus(Status::Error);
-        //emit statusChanged(m_status);
-        emit error(errorContext + " after " + QString::number(m_retryCount) + " attempts");
         m_retryCount = 0;
     }
 }

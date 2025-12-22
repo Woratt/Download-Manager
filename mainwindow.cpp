@@ -99,11 +99,10 @@ DownloadTypes::UserChoice MainWindow::showConflictDialog(const QString &url, Dow
     DownloadTypes::UserChoice choice;
     choice.action = DownloadTypes::Cancel;
 
-    // Просте питання
     QString question;
     switch (type) {
     case DownloadTypes::FileExists:
-        question = "File already exists. Download and replace?";
+        question = "File already exists. Download?";
         break;
     case DownloadTypes::UrlDownloading:
         question = "URL already downloading. Download another copy?";
@@ -116,12 +115,10 @@ DownloadTypes::UserChoice MainWindow::showConflictDialog(const QString &url, Dow
         break;
     }
 
-    QString message = QString("%1\n\nURL: %2").arg(question).arg(url);
-
     QMessageBox::StandardButton reply = QMessageBox::question(
         this,
         "Download Manager",
-        message,
+        question,
         QMessageBox::Yes | QMessageBox::No,
         QMessageBox::No
         );
@@ -129,7 +126,6 @@ DownloadTypes::UserChoice MainWindow::showConflictDialog(const QString &url, Dow
     if (reply == QMessageBox::Yes) {
         choice.action = DownloadTypes::Download;
 
-        // Якщо конфлікт файлу, питаємо чи перейменувати
         if (type == DownloadTypes::FileExists || type == DownloadTypes::BothConflicts) {
             QMessageBox renameBox;
             renameBox.setWindowTitle("File Name");
@@ -146,7 +142,7 @@ DownloadTypes::UserChoice MainWindow::showConflictDialog(const QString &url, Dow
                     choice.newFileName = newName;
                     choice.action = DownloadTypes::DownloadWithNewName;
                 } else {
-                    choice.action = DownloadTypes::Download; // Повертаємо до Download
+                    choice.action = DownloadTypes::Download;
                 }
             }
         }
@@ -173,38 +169,6 @@ void MainWindow::onClickDownloadButton(){
     DownloadTypes::UserChoice choice;
 
     m_downloadManager->processDownloadRequest(url, m_dir, choice);
-}
-
-QString MainWindow::askForFileAction(const QString &originalPath) {
-    /*QMessageBox msgBox;
-    msgBox.setWindowTitle("File name conflict");
-    msgBox.setText(QString("File '%1' exists.").arg(info.fileName()));
-    msgBox.setInformativeText("Select an action:");
-
-    QPushButton *replaceBtn = msgBox.addButton("Replace", QMessageBox::DestructiveRole);
-    QPushButton *renameBtn = msgBox.addButton("Rename", QMessageBox::ActionRole);
-    QPushButton *cancelBtn = msgBox.addButton("Cencelled", QMessageBox::RejectRole);
-
-    msgBox.exec();
-
-    if (msgBox.clickedButton() == replaceBtn) {
-        QString fileName = info.fileName();
-        return fileName;
-    } else if (msgBox.clickedButton() == renameBtn) {
-        bool ok;
-        QString newName = QInputDialog::getText(nullptr,
-                                                "Rename file",
-                                                "Enter a new file name:",
-                                                QLineEdit::Normal,
-                                                info.fileName(),
-                                                &ok);
-
-        if (ok && !newName.isEmpty()) {
-            return newName + "." + info.suffix();
-        }
-    }
-
-    return QString();*/
 }
 
 void MainWindow::onClickBrowseButton(){

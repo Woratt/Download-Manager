@@ -29,13 +29,13 @@ public:
     ~MainWindow();
 signals:
     void clickDownoaldButton();
-    void startDownload(DownloadItem*);
+    //void startDownload(DownloadItem*);
     void close();
 private:
     // UI and connections functions
     void setUpUI();
     void setUpConnections();
-    QString askForFileAction(const QString&);
+    //QString askForFileAction(const QString&);
     DownloadTypes::UserChoice showConflictDialog(const QString &url, DownloadTypes::ConflictType type);
 
     // Network

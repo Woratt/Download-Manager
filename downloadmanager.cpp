@@ -7,13 +7,13 @@ DownloadManager::DownloadManager(QObject *parent) : QObject(parent){
 
 void DownloadManager::processDownloadRequest(const QString &url, const QString &saveDir, const DownloadTypes::UserChoice &userChoice){
     QString filePath = createDownloadPath(url, saveDir, userChoice.newFileName);
+    QString fileName = !userChoice.newFileName.isEmpty() ? userChoice.newFileName : createDownloadFileName(url);
 
-
-    DownloadTypes::ConflictResult result = checkForConflicts(url, saveDir, userChoice.newFileName);
+    DownloadTypes::ConflictResult result = checkForConflicts(url, saveDir, fileName);
 
     if(result.type == DownloadTypes::NoConflict || userChoice.action == DownloadTypes::Download ||
         (userChoice.action == DownloadTypes::DownloadWithNewName && result.type == DownloadTypes::UrlDownloading)){
-        createAndStartDownload(url, filePath, userChoice.newFileName);
+        createAndStartDownload(url, filePath, fileName);
     }else if(userChoice.action == DownloadTypes::Cancel){
 
     }else{
@@ -26,6 +26,8 @@ DownloadTypes::ConflictResult DownloadManager::checkForConflicts(const QString &
     DownloadTypes::ConflictResult result;
 
     result.filePath = createDownloadPath(url, saveDir, suggestedName);
+
+    qDebug() << result.filePath;
 
     bool fileExists = QFile::exists(result.filePath);
 
@@ -43,13 +45,30 @@ DownloadTypes::ConflictResult DownloadManager::checkForConflicts(const QString &
     return result;
 }
 
+QString DownloadManager::createDownloadFileName(const QString &url)
+{
+    QString fileName;
+
+    QUrl qurl(url);
+    QString path = qurl.path();
+    if (!path.isEmpty()) {
+        QFileInfo info(path);
+        fileName = info.fileName();
+    }
+
+    if (fileName.isEmpty()) {
+        fileName = QString("download_%1")
+        .arg(QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss"));
+    }
+    return fileName;
+}
+
 
 QString DownloadManager::createDownloadPath(const QString &url,
                                             const QString &saveDir,
                                             const QString &suggestedName) {
     QDir dir(saveDir);
 
-    // Визначити ім'я файлу
     QString fileName;
 
     if (!suggestedName.isEmpty()) {
@@ -57,61 +76,28 @@ QString DownloadManager::createDownloadPath(const QString &url,
         QUrl qurl(url);
         QString path = qurl.path();
         QFileInfo info(path);
-        fileName += ("." + info.suffix());
+        QFileInfo currentIngo(fileName);
+        if(currentIngo.suffix().isEmpty()){
+            fileName += ("." + info.suffix());
+        }
     } else {
-        // Спробувати витягти з URL
-        QUrl qurl(url);
-        QString path = qurl.path();
-        if (!path.isEmpty()) {
-            QFileInfo info(path);
-            fileName = info.fileName();
-        }
-
-        // Якщо не вийшло - згенерувати
-        if (fileName.isEmpty()) {
-            fileName = QString("download_%1")
-            .arg(QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss"));
-        }
+        fileName = createDownloadFileName(url);
     }
 
-    // Перевірити розширення
     QFileInfo fileInfo(fileName);
     if (fileInfo.suffix().isEmpty()) {
-        fileName += ".bin"; // або визначити по Content-Type
+        fileName += ".bin";
     }
 
     return dir.absoluteFilePath(fileName);
 }
 
-
-
-/*DownloadManager::ConflictInfo DownloadManager::checkConflicts(
-    const QString &url, const QString &filePath) {
-
-    ConflictInfo info;
-
-    // 1. Перевірити файл
-    info.fileExists = QFile::exists(filePath);
-
-    // 2. Перевірити активні завантаження
-    for (auto it = m_itemTask.begin(); it != m_itemTask.end(); ++it) {
-        if (it.key()->getUrl() == url) {
-            info.existingItems.append(it.key());
-        }
-    }
-
-    return info;
-}*/
-
 void DownloadManager::createAndStartDownload(const QString &url, const QString &filePath, const QString& nameOfFile) {
-    // 1. Створити DownloadItem
-    DownloadItem *item = new DownloadItem(url, filePath, nullptr, nameOfFile);
+    DownloadItem *item = new DownloadItem(url, filePath, nameOfFile);
     m_items.push_back(item);
 
-    // 2. Створити та запустити завантаження
     startDownload(item);
 
-    // 3. Сповістити UI
     emit downloadReadyToAdd(item);
 }
 
@@ -122,6 +108,7 @@ void DownloadManager::startDownload(DownloadItem *item){
     connect(task, &DownloadTask::progressChanged, item, &DownloadItem::onProgressChanged, Qt::QueuedConnection);
     connect(task, &DownloadTask::statusChanged, m_threadPool, &ThreadPool::chackWhatStatus, Qt::QueuedConnection);
     connect(task, &DownloadTask::statusChanged, item, &DownloadItem::chackWhatStatus, Qt::QueuedConnection);
+    connect(item, &DownloadItem::deleteDownload, m_db, &DownloadDatabase::deleteDownload);
     connect(item, &DownloadItem::finishedDownload, this, &DownloadManager::finished);
 
     connect(item, &DownloadItem::ChangedBt, this, &DownloadManager::changeBt);
@@ -136,15 +123,6 @@ void DownloadManager::finished(){
     DownloadItem *item = qobject_cast<DownloadItem*>(sender());
     m_urlsDownloading.removeOne(item->getUrl());
 }
-
-
-/*void DownloadManager::resumeDownload(){
-    DownloadItem *item = qobject_cast<DownloadItem*>(sender());
-    DownloadTask *task = m_itemTask[item];
-    if(task){
-        m_threadPool->resumeDownload(task);
-    }
-}*/
 
 void DownloadManager::changeBt(DownloadItem* item, bool checked){
     if(checked && !m_selectedItems.contains(item)){
@@ -162,7 +140,8 @@ void DownloadManager::changeBt(DownloadItem* item, bool checked){
 
 void DownloadManager::downloadAll(){
     for(auto* item : m_selectedItems){
-        DownloadTask *task = m_itemTask[item];
+        item->pauseDownloadAll(true);
+        item->setNotChecked();
     }
     m_selectedItems.clear();
     emit hideButtons();
@@ -186,24 +165,40 @@ void DownloadManager::deleteAll(){
 }
 
 void DownloadManager::setItemsFromDB(){
-    QVector<DownloadRecord> records = m_db->getDownloadsInProcess();
+    QVector<DownloadRecord> records = m_db->getDownloads();
 
     qDebug() << "downloads size: " << records.size();
-    for(auto record : records){
-        DownloadItem* item = new DownloadItem(record.m_name, record.m_directory);
-        DownloadItemAdapter::updateItemFromRecord(item, record);
-        //m_threadPool->addTask(item);
-        //m_items.push_back(item);
+    for(auto& record : records){
+        DownloadItem* item = new DownloadItem(record.m_url, record.m_filePath, record.m_name);
+        DownloadTask* task = new DownloadTask(record.m_url, record.m_filePath);
 
+        m_items.push_back(item);
+
+        item->updateFromDb(record);
+        task->updateFromDb(record);
+
+        connect(item, &DownloadItem::statusChanged, task, &DownloadTask::setStatus, Qt::QueuedConnection);
+        connect(task, &DownloadTask::progressChanged, item, &DownloadItem::onProgressChanged, Qt::QueuedConnection);
+        connect(task, &DownloadTask::statusChanged, m_threadPool, &ThreadPool::chackWhatStatus, Qt::QueuedConnection);
+        connect(task, &DownloadTask::statusChanged, item, &DownloadItem::chackWhatStatus, Qt::QueuedConnection);
         connect(item, &DownloadItem::deleteDownload, m_db, &DownloadDatabase::deleteDownload);
+        connect(item, &DownloadItem::finishedDownload, this, &DownloadManager::finished);
 
-        emit setDownloadItemFromDB(item);
+        connect(item, &DownloadItem::ChangedBt, this, &DownloadManager::changeBt);
+
+        m_threadPool->addTaskFromDB(task);
+
+        m_itemTask[item] = task;
+        m_urlsDownloading.append(item->getUrl());
+
+        emit downloadReadyToAdd(item);
     }
 }
 
 void DownloadManager::saveAll(){
     for(auto item : m_items){
-        m_db->saveDownload(DownloadItemAdapter::toRecord(*item));
+        QPair<DownloadItem*, DownloadTask*> pair(item, m_itemTask[item]);
+        m_db->saveDownload(DownloadAdapter::toRecord(pair));
     }
 }
 

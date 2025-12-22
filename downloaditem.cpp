@@ -1,15 +1,11 @@
 #include "downloaditem.h"
 
-DownloadItem::DownloadItem(const QString& url, const QString& filePath, QWidget *parent, const QString& name) : QWidget(parent),
+DownloadItem::DownloadItem(const QString& url, const QString& filePath, const QString& name, QWidget *parent) : QWidget(parent),
                                                                                     m_url(url),
                                                                                     m_filePath(filePath),
+                                                                                    m_nameFileStr(name),
                                                                                     m_lastBytesReceived(0),
                                                                                     m_currentSpeed(0){
-    if(name.isEmpty()){
-        m_nameFileStr = getFileNameFromUrl(url);
-    }else{
-        m_nameFileStr = name;
-    }
     m_process = new QProcess(this);
     setUpUI();
     setUpConnections();
@@ -33,6 +29,7 @@ void DownloadItem::setUpUI(){
     m_speedDownload = new QLabel("0B/s");
     m_statusDownload = new QLabel("Pending");
     m_sizeFile = new QLabel();
+    m_timeToCompleteLabel = new QLabel();
 
     m_mainLayout = new QHBoxLayout(this);
     m_vLayout = new QVBoxLayout();
@@ -50,6 +47,7 @@ void DownloadItem::setUpUI(){
     m_lowerLayout->addWidget(m_speedDownload);
     m_lowerLayout->addWidget(m_sizeFile);
     m_lowerLayout->addWidget(m_progresSize);
+    m_lowerLayout->addWidget(m_timeToCompleteLabel);
 
     m_vLayout->setSpacing(0);
 
@@ -71,14 +69,38 @@ void DownloadItem::setUpConnections()
         emit statusChanged(DownloadTask::Status::Cancelled);
     });
     connect(m_deleteButton, &QPushButton::clicked, this, [=](){
-        emit statusChanged(DownloadTask::Status::Cancelled);
+        emit statusChanged(DownloadTask::Status::Deleted);
+        emit deleteDownload(this);
         deleteItem();
     });
 
     connect(m_checkBox, &QCheckBox::checkStateChanged, this, [=](bool checked){
-        m_isChecked = checked;
-        emit ChangedBt(this, m_isChecked);
+        emit ChangedBt(this, checked);
     });
+}
+
+void DownloadItem::updateFromDb(const DownloadRecord &record)
+{
+    m_nameFileStr = record.m_name;
+    m_filePath = record.m_filePath;
+    m_url = record.m_url;
+    m_bytesTotal = record.m_downloadedBytes;
+    m_bytesTotal = record.m_totalBytes;
+    QString status = record.m_status;
+    if (record.m_status == "pending") chackWhatStatus(DownloadTask::Pending);
+    if (record.m_status == "downloading") chackWhatStatus(DownloadTask::Downloading);
+    if (record.m_status == "resumed") chackWhatStatus(DownloadTask::Resumed);
+    if (record.m_status == "start_new_task") chackWhatStatus(DownloadTask::StartNewTask);
+    if (record.m_status == "resumed_in_pending") chackWhatStatus(DownloadTask::ResumedInPending);
+    if (record.m_status == "resumed_in_downloading") chackWhatStatus(DownloadTask::ResumedInDownloading);
+    if (record.m_status == "paused") chackWhatStatus(DownloadTask::Paused);
+    if (record.m_status == "paused_new") chackWhatStatus(DownloadTask::PausedNew);
+    if (record.m_status == "paused_resume") chackWhatStatus(DownloadTask::PausedResume);
+    if (record.m_status == "completed") chackWhatStatus(DownloadTask::Completed);
+    if (record.m_status == "error") chackWhatStatus(DownloadTask::Error);
+    if (record.m_status == "cancelled") chackWhatStatus(DownloadTask::Cancelled);
+    if (record.m_status == "deleted") chackWhatStatus(DownloadTask::Deleted);
+    onProgressChanged(record.m_downloadedBytes, record.m_totalBytes);
 }
 
 void DownloadItem::onPauseCheckBox()
@@ -129,28 +151,32 @@ void DownloadItem::chackWhatStatus(DownloadTask::Status status){
         break;
     case DownloadTask::Status::Paused:
         m_statusDownload->setText("Paused");
+        m_pauseCheckBox->setChecked(false);
         break;
     case DownloadTask::Status::Downloading:
         m_statusDownload->setText("Downloading");
         break;
-    default:
+    case DownloadTask::Status::Resumed:
+        m_statusDownload->setText("Downloading");
+        m_pauseCheckBox->setChecked(true);
+        break;
+    case DownloadTask::Status::StartNewTask:
+        m_statusDownload->setText("Downloading");
+        m_pauseCheckBox->setChecked(true);
+        break;
+    case DownloadTask::Status::PausedNew:
+        m_statusDownload->setText("Paused");
+        m_pauseCheckBox->setChecked(false);
+        break;
+    case DownloadTask::Status::PausedResume:
         break;
     }
-}
-
-QString DownloadItem::getFileNameFromUrl(const QUrl& url){
-    QString path = url.path();
-    QString fileName = QFileInfo(path).fileName();
-
-    if(fileName.isEmpty()){
-        fileName = "downloaded_file.txt";
-    }
-    return fileName;
 }
 
 void DownloadItem::setUpSpeedTimer(){
     m_timer = new QTimer(this);
     connect(m_timer, &QTimer::timeout, this, &DownloadItem::calculateSpeed);
+    connect(m_timer, &QTimer::timeout, this, &DownloadItem::calculateTimeToComplete);
     m_timer->start(1000);
 }
 
@@ -158,6 +184,14 @@ void DownloadItem::calculateSpeed(){
     if(m_totalBytesReceived > 0){
         qint64 bytesDiff = m_totalBytesReceived - m_lastBytesReceived;
         m_currentSpeed = bytesDiff;
+        m_speedHistory.append(m_currentSpeed);
+
+        if (m_speedHistory.size() > 5) {
+            m_speedHistory.removeFirst();
+        }
+        qint64 sumSpeed = 0;
+        for (qint64 s : m_speedHistory) sumSpeed += s;
+        m_currentSpeed = sumSpeed / m_speedHistory.size();
 
         updateSpeedString();
     }
@@ -182,6 +216,11 @@ void DownloadItem::setFileName(const QString& newFileName)
 {
     m_nameFileStr = newFileName;
     m_nameFile->setText(m_nameFileStr);
+}
+
+QString DownloadItem::getName()
+{
+    return m_nameFileStr;
 }
 
 QString DownloadItem::getUrl(){
@@ -261,6 +300,39 @@ void DownloadItem::onOpenFileInFolder(){
     }
 }
 
+void DownloadItem::calculateTimeToComplete(){
+    long long size = m_bytesTotal - m_totalBytesReceived;
+    if(m_currentSpeed > 0){
+        m_timeToComplete = size/m_currentSpeed;
+    }else{
+        m_timeToComplete = 0;
+    }
+    updateTimeToComplete();
+}
+
+void DownloadItem::updateTimeToComplete(){
+    if(m_timeToComplete == 0) m_timeToCompleteStr = "0s";
+    else{
+        qint64 hours = m_timeToComplete / 3600;
+        qint64 minutes = (m_timeToComplete % 3600) / 60;
+        qint64 secs = m_timeToComplete % 60;
+
+        if (hours > 0) {
+            m_timeToCompleteStr = QString("%1h %2m")
+            .arg(hours, 2, 10, QChar('0'))
+            .arg(minutes, 2, 10, QChar('0'));
+        }else if(minutes > 0){
+            m_timeToCompleteStr = QString("%1m %2s")
+            .arg(minutes, 2, 10, QChar('0'))
+                .arg(secs, 2, 10, QChar('0'));
+        }else{
+            m_timeToCompleteStr = QString("%1s")
+            .arg(secs, 2, 10, QChar('0'));
+        }
+    }
+    m_timeToCompleteLabel->setText(m_timeToCompleteStr);
+}
+
 void DownloadItem::setNotChecked(){
     m_checkBox->setChecked(false);
 }
@@ -269,20 +341,12 @@ void DownloadItem::deleteItem(){
     emit deleteDownload(this);
 }
 
-bool DownloadItem::isChecked(){
-    return m_isChecked;
-}
-
 void DownloadItem::onFinished(){
     m_timer->deleteLater();
 }
 
 DownloadItem::~DownloadItem(){
     m_process->deleteLater();
-}
-
-bool DownloadItem::isFromDB(){
-    return m_fromDB;
 }
 
 qint64 DownloadItem::getResumePos(){

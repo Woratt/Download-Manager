@@ -30,8 +30,8 @@ struct UserChoice {
 
 struct ConflictResult {
     ConflictType type = NoConflict;
-    QString filePath;                // Запропонований шлях до файлу
-    bool existingDownloads; // Існуючі завантаження з таким URL
+    QString filePath;
+    bool existingDownloads;
 };
 
 

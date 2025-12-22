@@ -6,6 +6,7 @@
 #include <QPair>
 #include <QThread>
 #include <QQueue>
+#include <QMutex>
 
 #include "downloaditem.h"
 #include "downloadtask.h"
@@ -16,31 +17,26 @@ class ThreadPool : public QObject
 public:
     explicit ThreadPool(QObject *parent = nullptr);
     void addTask(DownloadTask*);
+    void addTaskFromDB(DownloadTask*);
     ~ThreadPool();
 public slots:
     void onTaskFinished(DownloadTask*);
     void resumeDownload(DownloadTask*);
     void onTaskPaused(DownloadTask*);
     void chackWhatStatus(DownloadTask::Status);
-signals:
-    void taskStarted(DownloadTask*);
-    void taskFinished(DownloadTask*);
-    void taskPaused(DownloadTask*);
 private:
+    mutable QRecursiveMutex m_mutex;
     int m_maxThread;
     QVector<QThread*> m_idleThreads;
     QHash<QThread*, DownloadTask*> m_busyThreads;
 
     QQueue<DownloadTask*> m_pendingQueue;
 
-    void resumeTask(DownloadItem*);
-    void removeFromPendingQueue(const QString&);
     void startNewTask(DownloadTask*);
     void returnThreadToPool(QThread*);
     void startNextTask();
 
     void calculateMaxThreads();
-
 };
 
 #endif // THREADPOOL_H

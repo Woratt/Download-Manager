@@ -11,8 +11,6 @@ ThreadPool::ThreadPool(QObject *parent) : QObject(parent)
 }
 
 void ThreadPool::addTask(DownloadTask *task){
-    qDebug() << "m_idleThreads size: "  << m_idleThreads.size();
-
     if (!task) {
         qWarning() << "Cannot add null task";
         return;
@@ -20,7 +18,6 @@ void ThreadPool::addTask(DownloadTask *task){
 
     for (auto t : m_busyThreads.values()) {
         if (t == task) {
-            qDebug() << "Task already running";
             return;
         }
     }
@@ -34,6 +31,52 @@ void ThreadPool::addTask(DownloadTask *task){
     }
 }
 
+void ThreadPool::addTaskFromDB(DownloadTask* task){
+    DownloadTask::Status status = task->getStatus();
+    switch (status) {
+    case DownloadTask::Status::Resumed:
+        resumeDownload(task);
+        break;
+    case DownloadTask::Status::Completed:
+        //onTaskFinished(task);
+        break;
+    case DownloadTask::Status::Error:
+        //onTaskFinished(task);
+        break;
+    case DownloadTask::Status::Cancelled:
+        //onTaskFinished(task);
+        break;
+    case DownloadTask::Status::Paused:
+        onTaskPaused(task);
+        break;
+    case DownloadTask::Status::Pending:
+        m_pendingQueue.enqueue(task);
+        break;
+    case DownloadTask::Status::StartNewTask:
+        startNewTask(task);
+        break;
+    case DownloadTask::Status::Deleted:
+        onTaskFinished(task);
+        break;
+    case DownloadTask::Status::Downloading:
+        resumeDownload(task);
+        break;
+    case DownloadTask::Status::ResumedInDownloading:
+        resumeDownload(task);
+        break;
+    case DownloadTask::Status::PausedResume:
+        resumeDownload(task);
+        break;
+    case DownloadTask::Status::ResumedInPending:
+        resumeDownload(task);
+        break;
+    case DownloadTask::Status::PausedNew:
+        onTaskPaused(task);
+        break;
+    }
+
+}
+
 void ThreadPool::startNewTask(DownloadTask* task){
     if(m_idleThreads.isEmpty())
     {
@@ -41,7 +84,6 @@ void ThreadPool::startNewTask(DownloadTask* task){
     }
 
     if (task->thread() != this->thread()) {
-        // Робимо це безпечно
         QMetaObject::invokeMethod(task, [task, this]() {
             task->moveToThread(this->thread());
         }, Qt::BlockingQueuedConnection);
@@ -53,14 +95,11 @@ void ThreadPool::startNewTask(DownloadTask* task){
     m_busyThreads[thread] = task;
 
     QMetaObject::invokeMethod(task, "startDownload", Qt::QueuedConnection);
-
-    emit taskStarted(task);
 }
 
 void ThreadPool::resumeDownload(DownloadTask* task){
 
     if (task->thread() != this->thread()) {
-        // Робимо це безпечно
         QMetaObject::invokeMethod(task, [task, this]() {
             task->moveToThread(this->thread());
         }, Qt::BlockingQueuedConnection);
@@ -81,13 +120,10 @@ void ThreadPool::resumeDownload(DownloadTask* task){
     m_busyThreads[thread] = task;
 
     QMetaObject::invokeMethod(task, "resumeDownload", Qt::QueuedConnection);
-
-    emit taskStarted(task);
 }
 
 void ThreadPool::onTaskPaused(DownloadTask *task){
     if (!task) return;
-
 
     QThread *thread = nullptr;
     for(auto it = m_busyThreads.begin(); it != m_busyThreads.end(); ++it)
@@ -99,28 +135,23 @@ void ThreadPool::onTaskPaused(DownloadTask *task){
         }
     }
 
-    //task->moveToThread()
-
     if(thread)
     {
-        if (task->thread() != this->thread()) {
-            // Робимо це безпечно
-            QMetaObject::invokeMethod(task, [task, this]() {
+
+        connect(task, &DownloadTask::paused, this, [this, task, thread]() {
+            if (task->getStatus() == DownloadTask::Status::Paused) {
                 task->moveToThread(this->thread());
-            }, Qt::BlockingQueuedConnection);
-        }
+                this->returnThreadToPool(thread);
+                this->m_busyThreads.remove(thread);
+                this->startNextTask();
+            }
+        }, static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::SingleShotConnection));
 
         QMetaObject::invokeMethod(task, "pauseDownload", Qt::QueuedConnection);
-
-        returnThreadToPool(thread);
-        m_busyThreads.remove(thread);
-
 
     }
 
     startNextTask();
-
-    emit taskPaused(task);
 }
 
 void ThreadPool::chackWhatStatus(DownloadTask::Status status){
@@ -200,7 +231,6 @@ void ThreadPool::onTaskFinished(DownloadTask *task){
     if(thread){
 
         if (task->thread() != this->thread()) {
-            // Робимо це безпечно
             QMetaObject::invokeMethod(task, [task, this]() {
                 task->moveToThread(this->thread());
             }, Qt::BlockingQueuedConnection);
@@ -210,12 +240,9 @@ void ThreadPool::onTaskFinished(DownloadTask *task){
         returnThreadToPool(thread);
         m_busyThreads.remove(thread);
 
-        task->deleteLater();
     }
 
     startNextTask();
-
-    emit taskFinished(task);
 }
 
 void ThreadPool::returnThreadToPool(QThread* thread)
@@ -227,22 +254,15 @@ void ThreadPool::returnThreadToPool(QThread* thread)
 
     if(!m_idleThreads.contains(thread))
     {
-        //QMetaObject::invokeMethod(thread, [this, thread]() {
-            // Переконуємося, що в потоці немає залишків
-        //    QCoreApplication::sendPostedEvents(nullptr, 0);
-        //    QCoreApplication::processEvents();
-        //}, Qt::BlockingQueuedConnection);
-
         m_idleThreads.append(thread);
     }
-
 }
 
 void ThreadPool::calculateMaxThreads(){
     int cores = QThread::idealThreadCount();
     if (cores <= 0) cores = 2;
 
-    m_maxThread = qBound(2, static_cast<int>(cores / 4), 8);
+    m_maxThread = qBound(2, static_cast<int>(cores), 8);
 }
 
 ThreadPool::~ThreadPool(){

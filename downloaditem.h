@@ -16,6 +16,7 @@
 
 #include "toogle.h"
 #include "downloadtask.h"
+#include "downloadrecord.h"
 
 class DownloadItemAdapter;
 
@@ -23,16 +24,16 @@ class DownloadItem : public QWidget
 {
     Q_OBJECT
 public:
-    DownloadItem(const QString&, const QString&, QWidget* parent = nullptr, const QString& name = "");
+    DownloadItem(const QString&, const QString&, const QString&, QWidget* parent = nullptr);
     ~DownloadItem();
+    QString getName();
     QString getUrl();
     QString getFilePath();
-    bool isChecked();
     void pauseDownloadAll(bool);
     void setNotChecked();
-    bool isFromDB();
     void setFileName(const QString&);
     qint64 getResumePos();
+    void updateFromDb(const DownloadRecord &record);
 public slots:
     void onProgressChanged(qint64 bytesReceived, qint64 bytesTotal);
     void deleteItem();
@@ -40,31 +41,33 @@ public slots:
     void chackWhatStatus(DownloadTask::Status);
 private slots:
     void calculateSpeed();
+    void calculateTimeToComplete();
     void onPauseCheckBox();
     void updateProgressChange();
     void onOpenFileInFolder();
 signals:
     void statusChanged(DownloadTask::Status);
     void updateProgress();
-    void pauseDownload();
-    void resumeDownload();
     void deleteDownload(DownloadItem*);
     void ChangedBt(DownloadItem*, bool);
     void finishedDownload();
+    void deleteFromDb(DownloadItem*);
 private:
+    QList<qint64> m_speedHistory;
     QString m_nameFileStr;
     QString m_filePath;
     QString m_url;
     QString m_sizeFileStr;
+    QString m_timeToCompleteStr;
     qint64 m_lastBytesReceived;
     qint64 m_totalBytesReceived;
     qint64 m_currentSpeed;
     qint64 m_bytesTotal;
+    qint64 m_timeToComplete;
 
     qint64 m_resumePosPercentages = 0;
 
     int m_percentages = 0;
-    bool m_isChecked = false;
     bool m_fromDB = false;
 
     QVBoxLayout *m_vLayout;
@@ -82,6 +85,7 @@ private:
     QLabel *m_speedDownload;
     QLabel *m_statusDownload;
     QLabel *m_sizeFile;
+    QLabel *m_timeToCompleteLabel;
     QProgressBar *m_progressBar;
 
     QProcess *m_process;
@@ -92,12 +96,12 @@ private:
     void setUpSpeedTimer();
 
     void updateSpeedString();
+    void updateTimeToComplete();
 
-    QString getFileNameFromUrl(const QUrl&);
     auto createSpacer(int) -> QWidget*;
     auto createExpandingSpacer() ->QWidget*;
 
-    friend class DownloadItemAdapter;
+    friend class DownloadAdapter;
 };
 
 #endif // DOWNLOADITEM_H

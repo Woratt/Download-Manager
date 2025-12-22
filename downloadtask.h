@@ -10,12 +10,15 @@
 #include <QThread>
 #include <QTimer>
 #include <memory>
+#include <QFileInfo>
+#include <QStorageInfo>
+
+#include "downloadrecord.h"
 
 class DownloadTask :  public QObject
 {
     Q_OBJECT
 public:
-
     enum Status {
         Pending,
         Downloading,
@@ -35,15 +38,16 @@ public:
     DownloadTask(const QString&, const QString&, QObject *parent = nullptr);
     ~DownloadTask();
     void startNewTask(QThread* thread);
-    void resumeFromDB(QThread* thread, qint64);
     void stopDownload();
-    Status getStatus(){return m_status;};
+    Status getStatus(){
+        qDebug() << "Status: " << m_status;
+        return m_status;
+    };
+    void updateFromDb(const DownloadRecord &record);
 signals:
     void progressChanged(qint64, qint64);
-    void finished(const QString&);
-    void paused();
-    void error(const QString&);
     void statusChanged(DownloadTask::Status);
+    void paused();
 public slots:
     void startDownload();
     void pauseDownload();
@@ -66,6 +70,8 @@ private:
     std::unique_ptr<QByteArray> m_currentBuffer;
     std::unique_ptr<QByteArray> m_writeBuffer;
     bool m_isWriting{false};
+
+    void createAndPrepareFile(qint64 totalBytes, QString &errorMessage);
 
     QTimer *m_timeoutTimer;
     int m_timeoutSeconds{30};
@@ -98,6 +104,8 @@ private:
     void onTimeout();
     void scheduleRetry(const QString&);
     void swapBuffers();
+
+    friend class DownloadAdapter;
 };
 
 #endif // DOWNLOADTASK_H

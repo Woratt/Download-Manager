@@ -37,6 +37,7 @@ private:
     QString createDownloadPath(const QString &url, const QString &saveDir, const QString &suggestedName = "");
     void createAndStartDownload(const QString &url, const QString &filePath, const QString& fileName = "");
     DownloadTypes::ConflictResult checkForConflicts(const QString &url, const QString &saveDir, const QString &suggestedName = "");
+    QString createDownloadFileName(const QString &url);
 public slots:
     void startDownload(DownloadItem *item);
     void changeBt(DownloadItem*, bool);
