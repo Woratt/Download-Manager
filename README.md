@@ -13,7 +13,7 @@ The project demonstrates solid knowledge of **multithreading**, **asynchronous I
 - **Dynamic Optimization** — automatic adjustment of buffer size and timeouts based on network speed  
 - **Smart Retries** — retry mechanism with exponential backoff on connection failures  
 - **Persistent Storage** — full **SQLite** integration to restore download queue between application restarts  
-- **⚠️ Conflict Handling** — URL duplication checks and automatic file name conflict resolution  
+- **Conflict Handling** — URL duplication checks and automatic file name conflict resolution  
 
 ---
 
