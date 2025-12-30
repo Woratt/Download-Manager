@@ -4,7 +4,9 @@
 The project demonstrates solid knowledge of **multithreading**, **asynchronous I/O**, and **clean software architecture**.
 
 ---
-[![Download Manager Demo]()[https://youtu.be/dgRpaeJX_oc?si=S4TNr_OJ6k-yTEJe]
+Watch the demo of the Download Manager in action:
+
+[![Download Manager Demo](https://img.youtube.com/vi/dgRpaeJX_oc/0.jpg)](https://www.youtube.com/watch?v=dgRpaeJX_oc)
 
 ## Features
 
