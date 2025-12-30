@@ -4,7 +4,7 @@
 The project demonstrates solid knowledge of **multithreading**, **asynchronous I/O**, and **clean software architecture**.
 
 ---
-![Application Screenshot](image/image_git.png)
+[![Download Manager Demo]()[https://youtu.be/dgRpaeJX_oc?si=S4TNr_OJ6k-yTEJe]
 
 ## Features
 
