@@ -1,4 +1,4 @@
-#include "downloaditem.h"
+#include "../headers/downloaditem.h"
 
 DownloadItem::DownloadItem(const QString& url, const QString& filePath, const QString& name, QWidget *parent) : QWidget(parent),
                                                                                     m_url(url),
@@ -84,7 +84,6 @@ void DownloadItem::updateFromDb(const DownloadRecord &record)
     m_nameFileStr = record.m_name;
     m_filePath = record.m_filePath;
     m_url = record.m_url;
-    m_bytesTotal = record.m_downloadedBytes;
     m_bytesTotal = record.m_totalBytes;
     QString status = record.m_status;
     if (record.m_status == "pending") chackWhatStatus(DownloadTask::Pending);
@@ -96,11 +95,15 @@ void DownloadItem::updateFromDb(const DownloadRecord &record)
     if (record.m_status == "paused") chackWhatStatus(DownloadTask::Paused);
     if (record.m_status == "paused_new") chackWhatStatus(DownloadTask::PausedNew);
     if (record.m_status == "paused_resume") chackWhatStatus(DownloadTask::PausedResume);
-    if (record.m_status == "completed") chackWhatStatus(DownloadTask::Completed);
     if (record.m_status == "error") chackWhatStatus(DownloadTask::Error);
     if (record.m_status == "cancelled") chackWhatStatus(DownloadTask::Cancelled);
     if (record.m_status == "deleted") chackWhatStatus(DownloadTask::Deleted);
-    onProgressChanged(record.m_downloadedBytes, record.m_totalBytes);
+    if (record.m_status == "completed"){
+        onProgressChanged(record.m_totalBytes, record.m_totalBytes);
+        chackWhatStatus(DownloadTask::Completed);
+    }else{
+        onProgressChanged(record.m_downloadedBytes, record.m_totalBytes);
+    }
 }
 
 void DownloadItem::onPauseCheckBox()
@@ -352,5 +355,3 @@ DownloadItem::~DownloadItem(){
 qint64 DownloadItem::getResumePos(){
     return m_totalBytesReceived;
 }
-
-

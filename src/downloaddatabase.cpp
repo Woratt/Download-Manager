@@ -1,4 +1,4 @@
-#include "downloaddatabase.h"
+#include "../headers/downloaddatabase.h"
 
 DownloadDatabase::DownloadDatabase(QObject *parent) : QObject(parent) {
     initDatabase();
@@ -41,6 +41,10 @@ bool DownloadDatabase::createTables(){
         "status TEXT NOT NULL DEFAULT 'pending',"
         "totalBytes INTEGER DEFAULT 0,"
         "downloadedBytes INTEGER DEFAULT 0,"
+        "expectedHash TEXT,"
+        "actualHash TEXT,"
+        "hashAlgorithm TEXT,"
+        "chunkHashes BLOB,"
         "createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,"
         "updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP"
         ")";
@@ -110,7 +114,7 @@ QVector<DownloadRecord> DownloadDatabase::getDownloads()
 
     QSqlQuery query(m_db);
 
-    query.exec("SELECT name, url, filePath, status, totalBytes, downloadedBytes FROM downloads "
+    query.exec("SELECT name, url, filePath, status, totalBytes, downloadedBytes, expectedHash, actualHash, hashAlgorithm, chunkHashes FROM downloads "
                "ORDER BY "
                "CASE status "
                "WHEN 'downloading' THEN 1 "
@@ -136,6 +140,10 @@ QVector<DownloadRecord> DownloadDatabase::getDownloads()
         record.m_status = query.value(3).toString();
         record.m_totalBytes = query.value(4).toInt();
         record.m_downloadedBytes = query.value(5).toLongLong();
+        record.m_expectedHash = query.value(6).toString();
+        record.m_actualHash = query.value(7).toString();
+        record.m_hashAlgorithm = query.value(8).toString();
+        record.m_chunkHashes = query.value(9).toByteArray();
 
         records.push_back(record);
     }
@@ -143,26 +151,39 @@ QVector<DownloadRecord> DownloadDatabase::getDownloads()
 }
 
 
-void DownloadDatabase::saveDownload(const DownloadRecord& record){
+void DownloadDatabase::saveDownloads(QVector<DownloadRecord> records){
     QSqlQuery query(m_db);
+    for(auto record : records){
 
-    QString request =
-    "INSERT OR REPLACE INTO downloads "
-    "(name, url, filePath, status, totalBytes, downloadedBytes) "
-    "VALUES (?, ?, ?, ?, ?, ?)";
+        QString request =
+        "INSERT OR REPLACE INTO downloads "
+        "(name, url, filePath, status, totalBytes, downloadedBytes, expectedHash, actualHash, hashAlgorithm, chunkHashes) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-    query.prepare(request);
+        query.prepare(request);
 
-    query.addBindValue(record.m_name);
-    query.addBindValue(record.m_url);
-    query.addBindValue(record.m_filePath);
-    query.addBindValue(record.m_status);
-    query.addBindValue(record.m_totalBytes);
-    query.addBindValue(record.m_downloadedBytes);
+        //qDebug() << "record.m_expectedHash: " << record.m_expectedHash;
+        //qDebug() << "record.m_actualHash: " << record.m_actualHash;
+        //qDebug() << "record.m_hashAlgorithm: " << record.m_hashAlgorithm;
+        //qDebug() << "record.m_chunkHashes" << record.m_chunkHashes;
 
-    if(!query.exec()){
-        qDebug() << "Error save download " << query.lastError().text();
+        query.addBindValue(record.m_name);
+        query.addBindValue(record.m_url);
+        query.addBindValue(record.m_filePath);
+        query.addBindValue(record.m_status);
+        query.addBindValue(record.m_totalBytes);
+        query.addBindValue(record.m_downloadedBytes);
+        query.addBindValue(record.m_expectedHash);
+        query.addBindValue(record.m_actualHash);
+        query.addBindValue(record.m_hashAlgorithm);
+        query.addBindValue(record.m_chunkHashes, QSql::In | QSql::Binary);
+
+        if(!query.exec()){
+            qDebug() << "Error save download " << query.lastError().text();
+        }
     }
+
+    emit saveSuccesed();
 }
 
 void DownloadDatabase::deleteDownload(DownloadItem* item){

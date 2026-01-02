@@ -1,4 +1,4 @@
-#include "threadpool.h"
+#include "../headers/threadpool.h"
 
 ThreadPool::ThreadPool(QObject *parent) : QObject(parent)
 {
@@ -38,13 +38,13 @@ void ThreadPool::addTaskFromDB(DownloadTask* task){
         resumeDownload(task);
         break;
     case DownloadTask::Status::Completed:
-        //onTaskFinished(task);
+        onTaskFinished(task);
         break;
     case DownloadTask::Status::Error:
-        //onTaskFinished(task);
+        onTaskFinished(task);
         break;
     case DownloadTask::Status::Cancelled:
-        //onTaskFinished(task);
+        onTaskFinished(task);
         break;
     case DownloadTask::Status::Paused:
         onTaskPaused(task);
@@ -122,6 +122,99 @@ void ThreadPool::resumeDownload(DownloadTask* task){
     QMetaObject::invokeMethod(task, "resumeDownload", Qt::QueuedConnection);
 }
 
+/*bool ThreadPool::isAllDownloadsFree(){
+    if(m_maxThread == m_idleThreads.size()) return true;
+    else return false;
+}*/
+
+void ThreadPool::stopAllDownloads(QVector<DownloadTask*>& tasks){
+    if (tasks.isEmpty()) {
+        emit allDownloadsStoped();
+        return;
+    }
+
+    auto remaining = std::make_shared<int>(tasks.size());
+    for (DownloadTask* taskPtr : tasks) { // Використовуємо range-based for
+        if (!taskPtr) {
+            (*remaining)--;
+            continue;
+        }
+
+        QThread *thread = nullptr;
+        // Шукаємо потік для цього таска
+        for (auto it = m_busyThreads.begin(); it != m_busyThreads.end(); ++it) {
+            if (it.value() == taskPtr) {
+                thread = it.key();
+                break;
+            }
+        }
+
+        if (thread) {
+            // Захоплюємо taskPtr (вказівник), а не ітератор!
+            connect(taskPtr, &DownloadTask::stoped, this, [this, taskPtr, thread, remaining]() {
+
+                // Перевірка, чи об'єкт ще живий (опціонально, але бажано)
+                if (taskPtr) {
+                    taskPtr->moveToThread(this->thread());
+                }
+
+                this->returnThreadToPool(thread);
+                this->m_busyThreads.remove(thread);
+
+                // Якщо ми закриваємо програму, startNextTask() зазвичай не потрібен,
+                // але залишимо для логіки "паузи всього"
+                // this->startNextTask();
+
+                (*remaining)--;
+                if (*remaining <= 0) {
+                    emit allDownloadsStoped();
+                }
+            }, Qt::QueuedConnection);
+
+            QMetaObject::invokeMethod(taskPtr, "stopDownload", Qt::QueuedConnection);
+        } else {
+            // Якщо таск не був у m_busyThreads, він уже стоїть
+            (*remaining)--;
+        }
+    }
+
+    // Якщо раптом усі таски були нульові або не в потоках
+    if (*remaining <= 0) {
+        emit allDownloadsStoped();
+    }
+
+    /*for(auto task = tasks.begin(); task != tasks.end(); ++task){
+        if (!*task) continue;
+
+        QThread *thread = nullptr;
+        for(auto it = m_busyThreads.begin(); it != m_busyThreads.end(); ++it)
+        {
+            if(it.value() == *task)
+            {
+                thread = it.key();
+                break;
+            }
+        }
+
+        if(thread)
+        {
+
+            connect(*task, &DownloadTask::stoped, this, [=]() {
+                    (*task)->moveToThread(this->thread());
+                    this->returnThreadToPool(thread);
+                    this->m_busyThreads.remove(thread);
+                    this->startNextTask();
+                    if(task == (tasks.end() - 1)){
+                        emit allDownloadsStoped();
+                    }
+            }, static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::SingleShotConnection));
+
+            QMetaObject::invokeMethod(*task, "stopDownload", Qt::QueuedConnection);
+
+        }
+    }*/
+}
+
 void ThreadPool::onTaskPaused(DownloadTask *task){
     if (!task) return;
 
@@ -150,8 +243,6 @@ void ThreadPool::onTaskPaused(DownloadTask *task){
         QMetaObject::invokeMethod(task, "pauseDownload", Qt::QueuedConnection);
 
     }
-
-    startNextTask();
 }
 
 void ThreadPool::chackWhatStatus(DownloadTask::Status status){

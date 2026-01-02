@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+#include "../headers/mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -19,9 +19,16 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow() {}
 
 void MainWindow::closeEvent(QCloseEvent* event){
-    emit close();
 
-    event->accept();
+        event->ignore();
+
+        this->hide();
+
+        connect(m_downloadManager, &DownloadManager::readyToQuit, this, [this]() {
+            QCoreApplication::quit();
+        });
+
+        m_downloadManager->prepareToExit();
 }
 
 void MainWindow::setUpUI(){
@@ -69,7 +76,6 @@ void MainWindow::setUpConnections(){
     connect(m_browseButton, &QPushButton::clicked, this, &MainWindow::onClickBrowseButton);
 
     connect(m_downloadManager, &DownloadManager::downloadReadyToAdd, this, &MainWindow::addDownloadItem);
-    connect(this, &MainWindow::close, m_downloadManager, &DownloadManager::saveAll);
 
     connect(m_downloadManager, &DownloadManager::showButtons, this, [=](){
         setLayoutForSelectedItemsBtVisible(true);
@@ -191,6 +197,12 @@ void MainWindow::addDownloadItem(DownloadItem* item){
     listItem->setSizeHint(QSize(item->width(), item->height()));
 
     connect(item, &DownloadItem::deleteDownload, this, &MainWindow::deleteDownloadItem);
+
+    QThread* currentObjThread = this->thread();
+    QThread* currentExecThread = QThread::currentThread();
+
+    qDebug() << "MainWindow належить потоку:" << currentObjThread;
+    qDebug() << "MainWindow Код зараз виконується у потоці:" << currentExecThread;
 
 }
 

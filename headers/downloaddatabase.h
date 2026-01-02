@@ -24,9 +24,11 @@ public:
     int addDownload(const QString&, const QString&);
     void updateDownloadProgress(int, int);
     void updateDownloadStatus(int, const QString&);
-    void saveDownload(const DownloadRecord&);
+    void saveDownloads(QVector<DownloadRecord>);
     void deleteDownload(DownloadItem*);
     QVector<DownloadRecord> getDownloads();
+signals:
+    void saveSuccesed();
 private:
     QSqlDatabase m_db;
     QString getDatabasePath();

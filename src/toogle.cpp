@@ -1,4 +1,4 @@
-#include "toogle.h"
+#include "../headers/toogle.h"
 
 Toogle::Toogle(int width, const QColor& bgColor, const QColor& circleColor, const QColor& activeColor, QWidget* parent) :
     m_bgColor(bgColor), m_circleColor(circleColor), m_activeColor(activeColor), QCheckBox(parent) {

@@ -18,7 +18,10 @@ public:
     explicit ThreadPool(QObject *parent = nullptr);
     void addTask(DownloadTask*);
     void addTaskFromDB(DownloadTask*);
+    void stopAllDownloads(QVector<DownloadTask*>&);
     ~ThreadPool();
+signals:
+    void allDownloadsStoped();
 public slots:
     void onTaskFinished(DownloadTask*);
     void resumeDownload(DownloadTask*);

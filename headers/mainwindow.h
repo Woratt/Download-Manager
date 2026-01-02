@@ -29,18 +29,16 @@ public:
     ~MainWindow();
 signals:
     void clickDownoaldButton();
-    //void startDownload(DownloadItem*);
-    void close();
+    void closeWindow();
 private:
     // UI and connections functions
     void setUpUI();
     void setUpConnections();
-    //QString askForFileAction(const QString&);
     DownloadTypes::UserChoice showConflictDialog(const QString &url, DownloadTypes::ConflictType type);
 
     // Network
     DownloadManager *m_downloadManager;
-    QThread *thread;
+    //QThread *thread;
 
     // UI elements
     QLabel *m_nameApp;

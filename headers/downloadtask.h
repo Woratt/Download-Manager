@@ -12,8 +12,13 @@
 #include <memory>
 #include <QFileInfo>
 #include <QStorageInfo>
+#include <QCryptographicHash>
+#include <QRegularExpression>
 
 #include "downloadrecord.h"
+#include "chunkprocessor.h"
+#include "networkmanager.h"
+#include "storagemanager.h"
 
 class DownloadTask :  public QObject
 {
@@ -35,10 +40,8 @@ public:
         Deleted
     };
 
-    DownloadTask(const QString&, const QString&, QObject *parent = nullptr);
+    DownloadTask(const QString&, const QString&, qint64 fileSize, QObject *parent = nullptr);
     ~DownloadTask();
-    void startNewTask(QThread* thread);
-    void stopDownload();
     Status getStatus(){
         qDebug() << "Status: " << m_status;
         return m_status;
@@ -48,44 +51,45 @@ signals:
     void progressChanged(qint64, qint64);
     void statusChanged(DownloadTask::Status);
     void paused();
-public slots:
+    void stoped();
+    void start();
+    void checkFinished(bool isCorrupted);
+    public slots:
     void startDownload();
     void pauseDownload();
     void resumeDownload();
+    void stopDownload();
     void setStatus(Status);
+    void saveChunckHash(int index, const QByteArray &data, const QByteArray &hash);
 private slots:
-    void onReadyRead();
     void onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
     void onFinished();
-    void onError(QNetworkReply::NetworkError);
+    void onNetworkError(QNetworkReply::NetworkError);
 private:
     QString m_url;
     QString m_filePath;
-    QFile *m_outputFile;
-    QNetworkAccessManager *m_manager;
-    QNetworkReply *m_reply;
-    qint64 m_totalBytesWritten;
+    QString m_remoteExpectedHash;
+    QString m_actualHash;
     qint64 m_resumeDownloadPos;
 
-    std::unique_ptr<QByteArray> m_currentBuffer;
-    std::unique_ptr<QByteArray> m_writeBuffer;
-    bool m_isWriting{false};
+    QStringList m_hashCandidates;
+    QVector<QByteArray> m_chunkHashes;
+    QCryptographicHash::Algorithm m_activeAlgorithm = QCryptographicHash::Sha256;
 
-    void createAndPrepareFile(qint64 totalBytes, QString &errorMessage);
+    void startHashDiscovery();
+    void tryNextHashCandidate();
+    void parseHashContent(const QByteArray &content, const QString &candidateUrl);
 
     QTimer *m_timeoutTimer;
     int m_timeoutSeconds{30};
     int m_currentTimeout;
 
-    qint64 m_lastBytesReceived = 0;
+    qint64 m_lastBytesReceived{0};
     QElapsedTimer m_speedTimer;
-    qint64 m_bufferCapacity{64 * 1024};
-    qint64 m_maxBufferCapacity{256 * 1024};
-    qint64 m_minBufferCapacity{16 * 1024};
+
     double m_currentSpeed{0};
     QList<double> m_speedSamples;
     void measureSpeed(qint64);
-    void adjustBufferSize();
     void adjustTimeout();
 
     int m_timeToRetry{2};
@@ -95,7 +99,6 @@ private:
     bool m_isAborting{false};
     bool m_isHandlingError{false};
 
-    void flushBufferAsync();
 
     Status m_status = Status::Pending;
 
@@ -103,7 +106,17 @@ private:
     bool isRetryableError(QNetworkReply::NetworkError);
     void onTimeout();
     void scheduleRetry(const QString&);
-    void swapBuffers();
+    void syncAndStop();
+
+    bool m_isPauseRequested{false};
+
+    void verifyHashOfFile();
+
+    ChunkProcessor *m_chunkProcessor;
+    NetworkManager *m_networkManager;
+    StorageManager *m_storageManager;
+
+    void setUpConnections();
 
     friend class DownloadAdapter;
 };

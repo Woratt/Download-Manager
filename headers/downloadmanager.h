@@ -17,6 +17,7 @@
 #include "downloaditemadapter.h"
 
 #include "downloadtypes.h"
+#include "networkmanager.h"
 
 class DownloadManager : public QObject
 {
@@ -26,6 +27,7 @@ public:
     ~DownloadManager();
     void processDownloadRequest(const QString &url, const QString &saveDir, const DownloadTypes::UserChoice& userChoice);
     void setItemsFromDB();
+    void prepareToExit();
 private:
     ThreadPool *m_threadPool;
     DownloadDatabase *m_db;
@@ -34,17 +36,20 @@ private:
     QVector<QString> m_urlsDownloading;
     QHash<DownloadItem*, DownloadTask*> m_itemTask;
 
-    QString createDownloadPath(const QString &url, const QString &saveDir, const QString &suggestedName = "");
-    void createAndStartDownload(const QString &url, const QString &filePath, const QString& fileName = "");
-    DownloadTypes::ConflictResult checkForConflicts(const QString &url, const QString &saveDir, const QString &suggestedName = "");
-    QString createDownloadFileName(const QString &url);
+    void createAndStartDownload(const QString &url, const QString &filePath, const QString& fileName, qint64 fileSize);
+    DownloadTypes::ConflictResult checkForConflicts(const QString &url, const QString &filePuth);
+
+    NetworkManager *m_networkManager{nullptr};
+
+    int numOfSavedTask{0};
+
+    void checkPoolStatus();
+    void saveAllAndQuit();
 public slots:
-    void startDownload(DownloadItem *item);
     void changeBt(DownloadItem*, bool);
     void downloadAll();
     void pauseAll();
     void deleteAll();
-    void saveAll();
 private slots:
     void finished();
 signals:
@@ -53,6 +58,7 @@ signals:
     void setDownloadItemFromDB(DownloadItem*);
     void downloadReadyToAdd(DownloadItem*);
     void conflictsDetected(const QString &url, const DownloadTypes::ConflictResult &result);
+    void readyToQuit();
 };
 
 #endif // DOWNLOADMANAGER_H

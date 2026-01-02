@@ -1,4 +1,4 @@
-#include "downloadrecord.h"
+#include "../headers/downloadrecord.h"
 
 DownloadRecord::DownloadRecord(QObject* parent) : QObject(parent) {}
 
@@ -23,9 +23,14 @@ DownloadRecord::DownloadRecord(const DownloadRecord& record){
 
     m_totalBytes = record.m_totalBytes;
     m_downloadedBytes = record.m_downloadedBytes;
-    //m_resumePosition = record.m_resumePosition;
+
+    m_expectedHash = record.m_expectedHash;
+    m_actualHash = record.m_actualHash;
+    m_hashAlgorithm = record.m_hashAlgorithm;
+    m_chunkHashes = record.m_chunkHashes;
 
     m_createdAt = record.m_createdAt;
+
 }
 
 DownloadRecord& DownloadRecord::operator=(const DownloadRecord& record){

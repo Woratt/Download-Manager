@@ -5,23 +5,29 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Sql)
 find_package(Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core)
 
 qt_standard_project_setup()
 
 qt_add_executable(DownloadManager
     WIN32 MACOSX_BUNDLE
-    main.cpp
-    mainwindow.cpp
-    mainwindow.h
-    downloadmanager.h downloadmanager.cpp
-    downloaditem.h downloaditem.cpp
-    threadpool.h threadpool.cpp
-    downloadtask.h downloadtask.cpp
-    toogle.h toogle.cpp
-    downloaddatabase.h downloaddatabase.cpp
-    downloadrecord.h downloadrecord.cpp
-    downloaditemadapter.h downloaditemadapter.cpp
-    downloadtypes.h
+    src/main.cpp
+    src/mainwindow.cpp
+    headers/mainwindow.h
+    headers/downloadmanager.h src/downloadmanager.cpp
+    headers/downloaditem.h src/downloaditem.cpp
+    headers/threadpool.h src/threadpool.cpp
+    headers/downloadtask.h src/downloadtask.cpp
+    headers/toogle.h src/toogle.cpp
+    headers/downloaddatabase.h src/downloaddatabase.cpp
+    headers/downloadrecord.h src/downloadrecord.cpp
+    headers/downloaditemadapter.h src/downloaditemadapter.cpp
+    headers/downloadtypes.h
+    headers/networkmanager.h src/networkmanager.cpp
+    headers/chunkprocessor.h src/chunkprocessor.cpp
+    headers/storagemanager.h src/storagemanager.cpp
 )
 
 target_link_libraries(DownloadManager
@@ -32,6 +38,9 @@ target_link_libraries(DownloadManager
         Qt::Sql
 )
 target_link_libraries(DownloadManager PRIVATE Qt6::Core Qt6::Widgets Qt6::Sql)
+target_link_libraries(DownloadManager PRIVATE Qt6::Core)
+target_link_libraries(DownloadManager PRIVATE Qt6::Core)
+target_link_libraries(DownloadManager PRIVATE Qt6::Core)
 target_link_libraries(DownloadManager PRIVATE Qt6::Core)
 target_link_libraries(DownloadManager PRIVATE Qt6::Core)
 target_link_libraries(DownloadManager PRIVATE Qt6::Core)

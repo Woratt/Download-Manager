@@ -18,6 +18,10 @@ public:
     QString m_url;
     QString m_filePath;
     QString m_status = "pending";
+    QString m_expectedHash;
+    QString m_actualHash;
+    QString m_hashAlgorithm;
+    QByteArray m_chunkHashes;
 
     qint64 m_totalBytes = 0;
     qint64 m_downloadedBytes = 0;
