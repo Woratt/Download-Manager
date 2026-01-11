@@ -1,9 +1,9 @@
 #include "../headers/downloadtask.h"
 
-DownloadTask::DownloadTask(const QString& url, const QString& filePath, qint64 fileSize, QObject *parent) :
+DownloadTask::DownloadTask(const QString& url, DownloadTypes::FileInfo fileInfo, QObject *parent) :
                                                                     QObject(parent),
                                                                     m_url(url),
-                                                                    m_filePath(filePath),
+                                                                    m_fileInfo(fileInfo),
                                                                     m_resumeDownloadPos(0)
 {
     m_timeoutTimer = new QTimer(this);
@@ -11,11 +11,8 @@ DownloadTask::DownloadTask(const QString& url, const QString& filePath, qint64 f
 
     m_chunkProcessor = new ChunkProcessor(this);
     m_networkManager = new NetworkManager(this);
-    m_storageManager = new StorageManager(this);
 
-    m_storageManager->openFile(filePath, fileSize);
     setUpConnections();
-    //startHashDiscovery();
 }
 
 void DownloadTask::setUpConnections(){
@@ -23,10 +20,7 @@ void DownloadTask::setUpConnections(){
     connect(m_networkManager, &NetworkManager::downloadProgress, this, &DownloadTask::onDownloadProgress);
     connect(m_networkManager, &NetworkManager::errorOccurred, this, &DownloadTask::onNetworkError);
     connect(m_networkManager, &NetworkManager::finished, m_chunkProcessor, &ChunkProcessor::finalize);
-    //connect(m_storageManager, &StorageManager::errorOccurred, this, &DownloadTask::onError);
-    connect(m_chunkProcessor, &ChunkProcessor::chunkReady, m_storageManager, &StorageManager::writeChunk);
-    connect(m_chunkProcessor, &ChunkProcessor::chunkReady, this, &DownloadTask::saveChunckHash);
-    connect(m_storageManager, &StorageManager::savedLastChunk, this, &DownloadTask::onFinished);
+    connect(m_chunkProcessor, &ChunkProcessor::chunkReady, this, &DownloadTask::saveAndWriteChunckHash);
 
     connect(m_timeoutTimer, &QTimer::timeout, this, &DownloadTask::onTimeout);
 }
@@ -63,10 +57,12 @@ void DownloadTask::updateFromDb(const DownloadRecord &record){
     if (record.m_status == "deleted") m_status = DownloadTask::Deleted;
 }
 
-void DownloadTask::saveChunckHash(int index, const QByteArray &data, const QByteArray &hash){
+void DownloadTask::saveAndWriteChunckHash(int index, const QByteArray &data, const QByteArray &hash){
+    m_timeoutTimer->start(m_timeoutSeconds * 1000);
     if(!hash.isEmpty()){
-        //qDebug() << "✅ Чанк" << index << "захешовано в RAM:" << hash.left(8);
         m_chunkHashes.append(hash);
+
+        emit writeChunk(m_fileInfo, index, data);
     }
 }
 
@@ -84,7 +80,6 @@ void DownloadTask::startDownload(){
     connect(this, &DownloadTask::start, this, [=](){
         m_networkManager->startDownload(m_url);
     }, Qt::SingleShotConnection);
-    //m_networkManager->startDownload(m_url);
 }
 
 void DownloadTask::startHashDiscovery()
@@ -127,7 +122,7 @@ void DownloadTask::tryNextHashCandidate()
 
     QNetworkReply* reply = manager->get(request);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, candidate]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, candidate, manager]() {
         if (reply->error() == QNetworkReply::NoError) {
             parseHashContent(reply->readAll(), candidate);
             reply->deleteLater();
@@ -142,6 +137,7 @@ void DownloadTask::tryNextHashCandidate()
             reply->deleteLater();
             tryNextHashCandidate();
         }
+        manager->deleteLater();
     });
 }
 
@@ -174,7 +170,7 @@ void DownloadTask::parseHashContent(const QByteArray &content, const QString &ca
 }
 
 void DownloadTask::onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal){
-    m_timeoutTimer->start(m_timeoutSeconds * 1000);
+    //m_timeoutTimer->start(m_timeoutSeconds * 1000);
 
     measureSpeed(bytesReceived + m_resumeDownloadPos);
 
@@ -233,33 +229,40 @@ void DownloadTask::adjustTimeout() {
     }
 }
 
-void DownloadTask::onFinished(){
-    setStatus(Status::Completed);
+void DownloadTask::onFinished(const DownloadTypes::FileInfo &fileInfo){
+    if(fileInfo == m_fileInfo){
 
-    m_networkManager->abort();
-    m_storageManager->closeFile();
+        m_networkManager->abort();
+        emit stopWrite(m_fileInfo);
 
-    m_timeoutTimer->stop();
+        m_timeoutTimer->stop();
 
-    //m_resumeDownloadPos = static_cast<qint64>(m_chunkProcessor->getCurrentIndex()) * 1024 * 1024;
+        if(!m_remoteExpectedHash.isEmpty()){
+            QFile file(m_fileInfo.filePath);
+            if (!file.open(QIODevice::ReadOnly)) return;
 
-    if(!m_remoteExpectedHash.isEmpty()){
-        QFile file(m_filePath);
-        if (!file.open(QIODevice::ReadOnly)) return;
+            QCryptographicHash hasher(m_activeAlgorithm);
+            while (!file.atEnd()) {
+                hasher.addData(file.read(1024 * 1024));
+            }
 
-        QCryptographicHash hasher(m_activeAlgorithm);
-        while (!file.atEnd()) {
-            hasher.addData(file.read(1024 * 1024));
+            QString localHash = hasher.result().toHex().toLower();
+
+            qDebug() << "localHash: " << localHash;
+            qDebug() << "m_remoteExpectedHash: " << m_remoteExpectedHash;
+
+            bool isOk = (localHash == m_remoteExpectedHash);
+
+            //qDebug() << (isOk ? "✅ Файл валідний" : "❌ Файл пошкоджено!");
+        }else{
+            verifyHashOfFile();
+
+            connect(this, &DownloadTask::checkFinished, this, [=](bool isCorrupted){
+                //qDebug() << (!isCorrupted ? "✅ Файл валідний" : "❌ Файл пошкоджено!");
+            }, Qt::SingleShotConnection);
         }
 
-        QString localHash = hasher.result().toHex().toLower();
-
-        qDebug() << "localHash: " << localHash;
-        qDebug() << "m_remoteExpectedHash: " << m_remoteExpectedHash;
-
-        bool isOk = (localHash == m_remoteExpectedHash);
-
-        qDebug() << (isOk ? "✅ Файл валідний" : "❌ Файл пошкоджено!");
+        setStatus(Status::Completed);
     }
 }
 
@@ -270,18 +273,18 @@ void DownloadTask::stopDownload(){
 }
 
 void DownloadTask::pauseDownload(){
-    setStatus(Status::Paused);
+    //setStatus(Status::Paused);
     syncAndStop();
 
     emit paused();
 }
 
 void DownloadTask::resumeDownload(){
-    QThread* currentObjThread = this->thread();
-    QThread* currentExecThread = QThread::currentThread();
+    //QThread* currentObjThread = this->thread();
+    //QThread* currentExecThread = QThread::currentThread();
 
-    qDebug() << "The object belongs to the thread:" << currentObjThread;
-    qDebug() << "The code is now running in the thread:" << currentExecThread;
+    //qDebug() << "The object belongs to the thread:" << currentObjThread;
+    //qDebug() << "The code is now running in the thread:" << currentExecThread;
 
     connect(this, &DownloadTask::checkFinished, this, [=](bool isCorrupted){
         if(isCorrupted){
@@ -290,22 +293,21 @@ void DownloadTask::resumeDownload(){
             syncAndStop();
 
             m_chunkHashes.clear();
-            m_storageManager->clearFile();
+            emit clearFile(m_fileInfo);
             qDebug() << "- The existing chunks have been checked. File corrupted";
         }else{
             qDebug() << "+ The existing chunks have been checked. Let's continue...";
         }
 
         m_chunkProcessor->reset(m_resumeDownloadPos / (1024 * 1024));
-        m_storageManager->openFile(m_filePath, 0);
         m_networkManager->startDownload(m_url, m_resumeDownloadPos);
+        emit openFile(m_fileInfo, m_resumeDownloadPos);
     }, Qt::SingleShotConnection);
 
     verifyHashOfFile();
 }
 
 bool DownloadTask::isRetryableError(QNetworkReply::NetworkError error){
-    qDebug() << "2";
     return (error == QNetworkReply::ConnectionRefusedError ||
             error == QNetworkReply::RemoteHostClosedError ||
             error == QNetworkReply::TimeoutError ||
@@ -319,7 +321,8 @@ bool DownloadTask::isRetryableError(QNetworkReply::NetworkError error){
 }
 
 void DownloadTask::onNetworkError(QNetworkReply::NetworkError errorCode){
-    if (m_status == Status::Paused || m_status == Status::PausedResume || m_status == Status::PausedNew ||m_isHandlingError) return;
+    if (m_status == Status::Paused || m_status == Status::PausedResume
+        || m_status == Status::PausedNew || m_status == Status::Pending || m_isHandlingError) return;
     m_isHandlingError = true;
 
     syncAndStop();
@@ -345,17 +348,18 @@ void DownloadTask::handleFailure(const QString& errorContext, bool shouldRetry){
 
 void DownloadTask::onTimeout(){
     m_isHandlingError = true;
+    if (m_status == Status::Paused || m_status == Status::PausedResume
+        || m_status == Status::PausedNew || m_status == Status::Pending || m_isHandlingError) return;
 
     syncAndStop();
 
-    qWarning() << "Download timeout after" << m_timeoutSeconds << "seconds";
+    qDebug() << "Download timeout after" << m_timeoutSeconds << "seconds";
 
     handleFailure("Timeout", true);
     m_isHandlingError = false;
 }
 
 void DownloadTask::scheduleRetry(const QString& error){
-    qDebug() << "4";
     ++m_retryCount;
 
     QTimer::singleShot(m_timeToRetry * 1000, this, &DownloadTask::resumeDownload);
@@ -364,15 +368,15 @@ void DownloadTask::scheduleRetry(const QString& error){
 
 void DownloadTask::syncAndStop() {
     m_networkManager->abort();
-    m_storageManager->closeFile();
     m_resumeDownloadPos = static_cast<qint64>(m_chunkProcessor->getCurrentIndex()) * 1024 * 1024;
     m_chunkProcessor->reset(m_chunkProcessor->getCurrentIndex());
+    emit stopWrite(m_fileInfo);
 }
 
 void DownloadTask::verifyHashOfFile(){
     if (m_chunkHashes.isEmpty() || m_resumeDownloadPos == 0) emit checkFinished(false);
 
-    QFile file(m_filePath);
+    QFile file(m_fileInfo.filePath);
     if (!file.open(QIODevice::ReadOnly)) emit checkFinished(true);
 
     for (int i = 0; i < m_chunkHashes.size(); ++i) {
@@ -386,8 +390,13 @@ void DownloadTask::verifyHashOfFile(){
     emit checkFinished(false);
 }
 
+void DownloadTask::changeQuantityOfChunks(const DownloadTypes::FileInfo &fileInfo, qint64 valueOfChange){
+    if(m_fileInfo == fileInfo){
+        m_fileInfo.quantityOfChunks += valueOfChange;
+    }
+}
+
 DownloadTask::~DownloadTask(){
-    m_networkManager->deleteLater();
-    m_chunkProcessor->deleteLater();
-    m_storageManager->deleteLater();
+    syncAndStop();
+    emit deletedownloadedData(m_fileInfo);
 }

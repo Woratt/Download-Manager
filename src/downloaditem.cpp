@@ -71,7 +71,6 @@ void DownloadItem::setUpConnections()
     connect(m_deleteButton, &QPushButton::clicked, this, [=](){
         emit statusChanged(DownloadTask::Status::Deleted);
         emit deleteDownload(this);
-        deleteItem();
     });
 
     connect(m_checkBox, &QCheckBox::checkStateChanged, this, [=](bool checked){
