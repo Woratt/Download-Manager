@@ -59,8 +59,6 @@ DownloadTypes::ConflictResult DownloadManager::checkForConflicts(const QString &
 
     result.filePath = filePuth;
 
-    qDebug() << result.filePath;
-
     bool fileExists = QFile::exists(result.filePath);
 
     result.existingDownloads = m_urlsDownloading.contains(url);
@@ -92,8 +90,6 @@ void DownloadManager::createAndStartDownload(const QString &url, const QString &
 
     m_items.push_back(item);
 
-
-
     connect(m_storageManager, &StorageManager::savedLastChunk, task, &DownloadTask::onFinished, Qt::QueuedConnection);
     connect(m_storageManager, &StorageManager::changeQuantityOfChunks, task, &DownloadTask::changeQuantityOfChunks, Qt::QueuedConnection);
     connect(task, &DownloadTask::openFile, m_storageManager, &StorageManager::openFile, Qt::QueuedConnection);
@@ -104,10 +100,8 @@ void DownloadManager::createAndStartDownload(const QString &url, const QString &
     connect(task, &DownloadTask::progressChanged, item, &DownloadItem::onProgressChanged, Qt::QueuedConnection);
     connect(task, &DownloadTask::statusChanged, m_threadPool, &ThreadPool::chackWhatStatus, Qt::QueuedConnection);
     connect(task, &DownloadTask::statusChanged, item, &DownloadItem::chackWhatStatus, Qt::QueuedConnection);
-    //connect(item, &DownloadItem::deleteDownload, m_db, &DownloadDatabase::deleteDownload);
     connect(item, &DownloadItem::deleteDownload, this, &DownloadManager::deleteDownload);
     connect(item, &DownloadItem::finishedDownload, this, &DownloadManager::finished);
-
     connect(item, &DownloadItem::ChangedBt, this, &DownloadManager::changeBt);
 
     connect(m_storageManager, &StorageManager::fileOpen, this, [=](const DownloadTypes::FileInfo &fileInfo){
@@ -172,7 +166,6 @@ void DownloadManager::deleteAll(){
 void DownloadManager::setItemsFromDB(){
     QVector<DownloadRecord> records = m_db->getDownloads();
 
-    qDebug() << "downloads size: " << records.size();
     for(auto& record : records){
         DownloadTypes::FileInfo fileInfo;
         fileInfo.fileName = record.m_name;

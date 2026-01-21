@@ -47,6 +47,8 @@ public:
             case DownloadTask::Status::Error: record.m_status = "error"; break;
             case DownloadTask::Status::Cancelled: record.m_status = "cancelled"; break;
             case DownloadTask::Status::Deleted: record.m_status = "deleted"; break;
+            case DownloadTask::Status::Preparing: record.m_status = "preparing"; break;
+            case DownloadTask::Status::Prepared: record.m_status = "prepared"; break;
             }
             records.append(record);
         }

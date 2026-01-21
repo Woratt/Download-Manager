@@ -25,6 +25,9 @@ class DownloadTask :  public QObject
     Q_OBJECT
 public:
     enum Status {
+        FileIntegrityCheck,
+        Preparing,
+        Prepared,
         Pending,
         Downloading,
         Resumed,
@@ -105,7 +108,7 @@ private:
     bool m_isHandlingError{false};
 
 
-    Status m_status = Status::Pending;
+    Status m_status = Status::Preparing;
 
     void handleFailure(const QString& errorContext, bool shouldRetry);
     bool isRetryableError(QNetworkReply::NetworkError);

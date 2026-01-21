@@ -42,10 +42,8 @@ void ThreadPool::addTaskFromDB(DownloadTask* task){
         onTaskFinished(task);
         break;
     case DownloadTask::Status::Error:
-        //cancelDownload(task);
         break;
     case DownloadTask::Status::Cancelled:
-        //cancelDownload(task);
         break;
     case DownloadTask::Status::Paused:
         onTaskPaused(task);
@@ -57,8 +55,6 @@ void ThreadPool::addTaskFromDB(DownloadTask* task){
         startNewTask(task);
         break;
     case DownloadTask::Status::Deleted:
-        //onTaskFinished(task);
-        //cancelDownload(task);
         break;
     case DownloadTask::Status::Downloading:
         resumeDownload(task);
@@ -75,27 +71,34 @@ void ThreadPool::addTaskFromDB(DownloadTask* task){
     case DownloadTask::Status::PausedNew:
         onTaskPaused(task);
         break;
+    case DownloadTask::Status::Preparing:
+        m_pendingQueue.enqueue(task);
+        break;
+    case DownloadTask::Status::Prepared:
+        startNewTask(task);
+        break;
     }
 
 }
 
 void ThreadPool::startNewTask(DownloadTask* task){
     QMutexLocker locker(&m_mutex);
-    if(m_idleThreads.isEmpty())
+    if(m_idleThreads.isEmpty() || !task)
     {
         return;
     }
 
-    if (task->thread() != this->thread()) {
-        QMetaObject::invokeMethod(task, [task, this]() {
-            task->moveToThread(this->thread());
+    QThread *workerThread = m_idleThreads.takeFirst();
+
+    if (task->thread() == QThread::currentThread()) {
+        task->moveToThread(workerThread);
+    } else {
+        QMetaObject::invokeMethod(task, [task, workerThread]() {
+            task->moveToThread(workerThread);
         }, Qt::BlockingQueuedConnection);
     }
 
-    QThread *thread = m_idleThreads.takeFirst();
-
-    task->moveToThread(thread);
-    m_busyThreads[thread] = task;
+    m_busyThreads[workerThread] = task;
 
     QMetaObject::invokeMethod(task, "startDownload", Qt::QueuedConnection);
 }
@@ -229,12 +232,6 @@ void ThreadPool::chackWhatStatus(DownloadTask::Status status){
     DownloadTask* task = qobject_cast<DownloadTask*>(sender());
     QMutexLocker locker(&m_mutex);
 
-    if (task->thread() != this->thread()) {
-        QMetaObject::invokeMethod(task, [task, this]() {
-            task->moveToThread(this->thread());
-        }, Qt::BlockingQueuedConnection);
-    }
-
     switch (status) {
     case DownloadTask::Status::Resumed:
         resumeDownload(task);
@@ -266,6 +263,12 @@ void ThreadPool::chackWhatStatus(DownloadTask::Status status){
     case DownloadTask::Status::Deleted:
         onTaskPaused(task);
         break;
+    case DownloadTask::Status::Preparing:
+        m_pendingQueue.enqueue(task);
+        break;
+    case DownloadTask::Status::Prepared:
+        startNewTask(task);
+        break;
     }
 }
 
@@ -278,7 +281,7 @@ void ThreadPool::startNextTask()
     }
     DownloadTask *task = m_pendingQueue.dequeue();
 
-    if(task->getStatus() == DownloadTask::Status::Pending)
+    if(task->getStatus() == DownloadTask::Status::Pending || task->getStatus() == DownloadTask::Status::Prepared)
     {
         startNewTask(task);
     }else if(task->getStatus() == DownloadTask::Status::ResumedInPending)

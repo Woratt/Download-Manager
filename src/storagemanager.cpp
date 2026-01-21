@@ -53,7 +53,6 @@ void StorageManager::writeToDisk(const DownloadTypes::FileInfo &fileInfo, qint64
 
     if (!chunks.isEmpty() && chunks.last().size() < m_chunkSize) {
         closeFile(fileInfo);
-        emit savedLastChunk(fileInfo);
     }else{
 
         qint64 firstIndexInBatch = lastIndex - chunks.size() + 1;
@@ -138,8 +137,6 @@ void StorageManager::updateQuantityOfChunks(const DownloadTypes::FileInfo &fileI
     if(fileInfo.quantityOfChunks > 120 || fileInfo.quantityOfChunks < 4){
         emit changeQuantityOfChunks(fileInfo, qBound(8LL, (qint64)fileInfo.quantityOfChunks, 128LL));
     }
-    qDebug() << "avgTimePerChunk: " << avgTimePerChunk;
-    qDebug() << "fileInfo.quantityOfChunks: " << fileInfo.quantityOfChunks;
 }
 
 void StorageManager::clearFile(const DownloadTypes::FileInfo &fileInfo){

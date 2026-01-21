@@ -93,7 +93,6 @@ void MainWindow::setUpConnections(){
 }
 
 void MainWindow::handleDownloadConflicts(const QString &url, const DownloadTypes::ConflictResult &conflict){
-    qDebug() << conflict.type;
     DownloadTypes::UserChoice choice = showConflictDialog(url, conflict.type);
 
     m_downloadManager->processDownloadRequest(url, m_dir, choice);
@@ -196,14 +195,8 @@ void MainWindow::addDownloadItem(DownloadItem* item){
 
     listItem->setSizeHint(QSize(item->width(), item->height()));
 
-    //connect(item, &DownloadItem::deleteDownload, this, &MainWindow::deleteDownloadItem);
-
     QThread* currentObjThread = this->thread();
     QThread* currentExecThread = QThread::currentThread();
-
-    qDebug() << "MainWindow належить потоку:" << currentObjThread;
-    qDebug() << "MainWindow Код зараз виконується у потоці:" << currentExecThread;
-
 }
 
 void MainWindow::deleteDownloadItem(DownloadItem* item){

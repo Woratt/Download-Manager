@@ -20,14 +20,19 @@ void DownloadItem::setUpUI(){
 
     m_pauseCheckBox = new Toogle(25, Qt::gray, Qt::white, Qt::blue);
     m_pauseCheckBox->setChecked(true);
+    m_pauseCheckBox->hide();
 
     m_openInFolderButton = new QPushButton("Open in Folder");
     m_deleteButton = new QPushButton("Delete");
     m_cancellButton = new QPushButton("Cancell");
 
+    m_openInFolderButton->setMaximumWidth(200);
+    m_deleteButton->setMaximumWidth(200);
+    m_cancellButton->setMaximumWidth(200);
+
     m_progresSize = new QLabel("0%");
     m_speedDownload = new QLabel("0B/s");
-    m_statusDownload = new QLabel("Pending");
+    m_statusDownload = new QLabel("Preparing");
     m_sizeFile = new QLabel();
     m_timeToCompleteLabel = new QLabel();
 
@@ -44,10 +49,15 @@ void DownloadItem::setUpUI(){
     m_lowerLayout->addWidget(m_pauseCheckBox);
     m_lowerLayout->addWidget(createSpacer(20));
     m_lowerLayout->addWidget(m_statusDownload);
+    m_lowerLayout->addWidget(createExpandingSpacer());
     m_lowerLayout->addWidget(m_speedDownload);
+    m_lowerLayout->addWidget(createExpandingSpacer());
     m_lowerLayout->addWidget(m_sizeFile);
+    m_lowerLayout->addWidget(createExpandingSpacer());
     m_lowerLayout->addWidget(m_progresSize);
+    m_lowerLayout->addWidget(createExpandingSpacer());
     m_lowerLayout->addWidget(m_timeToCompleteLabel);
+    m_lowerLayout->addWidget(createSpacer(20));
 
     m_vLayout->setSpacing(0);
 
@@ -84,6 +94,7 @@ void DownloadItem::updateFromDb(const DownloadRecord &record)
     m_filePath = record.m_filePath;
     m_url = record.m_url;
     m_bytesTotal = record.m_totalBytes;
+    m_pauseCheckBox->show();
     QString status = record.m_status;
     if (record.m_status == "pending") chackWhatStatus(DownloadTask::Pending);
     if (record.m_status == "downloading") chackWhatStatus(DownloadTask::Downloading);
@@ -97,6 +108,8 @@ void DownloadItem::updateFromDb(const DownloadRecord &record)
     if (record.m_status == "error") chackWhatStatus(DownloadTask::Error);
     if (record.m_status == "cancelled") chackWhatStatus(DownloadTask::Cancelled);
     if (record.m_status == "deleted") chackWhatStatus(DownloadTask::Deleted);
+    if(record.m_status == "preparing") chackWhatStatus(DownloadTask::Preparing);
+    if(record.m_status == "prepared") chackWhatStatus(DownloadTask::Prepared);
     if (record.m_status == "completed"){
         onProgressChanged(record.m_totalBytes, record.m_totalBytes);
         chackWhatStatus(DownloadTask::Completed);
@@ -133,6 +146,7 @@ void DownloadItem::chackWhatStatus(DownloadTask::Status status){
     case DownloadTask::Status::Cancelled:
         m_statusDownload->setText("Cancelled");
         m_pauseCheckBox->hide();
+        m_cancellButton->hide();
         emit finishedDownload();
         break;
     case DownloadTask::Status::Error:
@@ -143,6 +157,7 @@ void DownloadItem::chackWhatStatus(DownloadTask::Status status){
     case DownloadTask::Status::Completed:
         m_statusDownload->setText("Completed");
         m_pauseCheckBox->hide();
+        m_cancellButton->hide();
         emit finishedDownload();
         break;
     case DownloadTask::Status::ResumedInDownloading:
@@ -156,6 +171,8 @@ void DownloadItem::chackWhatStatus(DownloadTask::Status status){
         m_pauseCheckBox->setChecked(false);
         break;
     case DownloadTask::Status::Downloading:
+        m_pauseCheckBox->show();
+        m_pauseCheckBox->setChecked(true);
         m_statusDownload->setText("Downloading");
         break;
     case DownloadTask::Status::Resumed:
@@ -171,6 +188,24 @@ void DownloadItem::chackWhatStatus(DownloadTask::Status status){
         m_pauseCheckBox->setChecked(false);
         break;
     case DownloadTask::Status::PausedResume:
+        break;
+    case DownloadTask::Status::Preparing:
+        m_statusDownload->setText("Preparing");
+        m_pauseCheckBox->hide();
+        break;
+    case DownloadTask::Status::Prepared:
+        m_statusDownload->setText("Prepared");
+        m_pauseCheckBox->hide();
+        break;
+    case DownloadTask::Status::Deleted:
+        m_statusDownload->setText("Deleted");
+        m_pauseCheckBox->hide();
+        m_cancellButton->hide();
+        break;
+    case DownloadTask::Status::FileIntegrityCheck:
+        m_statusDownload->setText("File Integrity Checking");
+        m_pauseCheckBox->hide();
+        m_cancellButton->hide();
         break;
     }
 }
@@ -285,7 +320,7 @@ auto DownloadItem::createSpacer(int width) -> QWidget*
 void DownloadItem::onOpenFileInFolder(){
     QFileInfo info(getFilePath());
     if (!info.exists()) {
-        qDebug() << "Файл не існує!";
+        //!!!
         return;
     }
 
@@ -298,7 +333,7 @@ void DownloadItem::onOpenFileInFolder(){
     #endif
 
     if (!m_process->waitForFinished(5000)) {
-        qDebug() << "Процес не завершився вчасно";
+        //!!!
     }
 }
 

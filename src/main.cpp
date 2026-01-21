@@ -9,8 +9,7 @@ int main(int argc, char *argv[])
     w.show();
 
     QApplication::connect(&a, &QCoreApplication::aboutToQuit, [&w]() {
-        //qDebug() << "⚠️ Екстрене збереження перед виходом (Cmd+Q)...";
-
+        //!!!
     });
 
     return a.exec();

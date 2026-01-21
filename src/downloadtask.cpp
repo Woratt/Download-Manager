@@ -13,14 +13,22 @@ DownloadTask::DownloadTask(const QString& url, DownloadTypes::FileInfo fileInfo,
     m_networkManager = new NetworkManager(this);
 
     setUpConnections();
+
+    connect(this, &DownloadTask::start, this, [=](){
+        if(m_status == Status::Preparing){
+            setStatus(Status::Prepared);
+        }
+    }, Qt::SingleShotConnection);
+
+    startHashDiscovery();
 }
 
 void DownloadTask::setUpConnections(){
-    connect(m_networkManager, &NetworkManager::dataReceived, m_chunkProcessor, &ChunkProcessor::processData);
-    connect(m_networkManager, &NetworkManager::downloadProgress, this, &DownloadTask::onDownloadProgress);
-    connect(m_networkManager, &NetworkManager::errorOccurred, this, &DownloadTask::onNetworkError);
-    connect(m_networkManager, &NetworkManager::finished, m_chunkProcessor, &ChunkProcessor::finalize);
-    connect(m_chunkProcessor, &ChunkProcessor::chunkReady, this, &DownloadTask::saveAndWriteChunckHash);
+    connect(m_networkManager, &NetworkManager::dataReceived, m_chunkProcessor, &ChunkProcessor::processData, Qt::QueuedConnection);
+    connect(m_networkManager, &NetworkManager::downloadProgress, this, &DownloadTask::onDownloadProgress, Qt::QueuedConnection);
+    connect(m_networkManager, &NetworkManager::errorOccurred, this, &DownloadTask::onNetworkError, Qt::QueuedConnection);
+    connect(m_networkManager, &NetworkManager::finished, m_chunkProcessor, &ChunkProcessor::finalize, Qt::QueuedConnection);
+    connect(m_chunkProcessor, &ChunkProcessor::chunkReady, this, &DownloadTask::saveAndWriteChunckHash, Qt::QueuedConnection);
 
     connect(m_timeoutTimer, &QTimer::timeout, this, &DownloadTask::onTimeout);
 }
@@ -30,6 +38,7 @@ void DownloadTask::updateFromDb(const DownloadRecord &record){
 
     m_remoteExpectedHash = record.m_expectedHash;
     m_actualHash = record.m_actualHash;
+    //!!!
     if(record.m_hashAlgorithm == "md5"){
         //m_activeAlgorithm = QCryptographicHash::Md5;
        // m_chunkProcessor->setCryptographicAlgorithm(m_activeAlgorithm);
@@ -55,6 +64,9 @@ void DownloadTask::updateFromDb(const DownloadRecord &record){
     if (record.m_status == "error") m_status = DownloadTask::Error;
     if (record.m_status == "cancelled") m_status = DownloadTask::Cancelled;
     if (record.m_status == "deleted") m_status = DownloadTask::Deleted;
+    if (record.m_status == "preparing") m_status = DownloadTask::Preparing;
+    if (record.m_status == "prepared") m_status = DownloadTask::Prepared;
+
 }
 
 void DownloadTask::saveAndWriteChunckHash(int index, const QByteArray &data, const QByteArray &hash){
@@ -74,12 +86,12 @@ void DownloadTask::setStatus(Status newStatus){
 }
 
 void DownloadTask::startDownload(){
-    setStatus(Status::Downloading);
-    startHashDiscovery();
-
-    connect(this, &DownloadTask::start, this, [=](){
+    if(m_status == Status::Prepared){
         m_networkManager->startDownload(m_url);
-    }, Qt::SingleShotConnection);
+        setStatus(Status::Downloading);
+    }else{
+        QTimer::singleShot(200, this, &DownloadTask::startDownload);
+    }
 }
 
 void DownloadTask::startHashDiscovery()
@@ -88,8 +100,6 @@ void DownloadTask::startHashDiscovery()
     QUrl url(m_url);
     QString baseUrl = m_url.left(m_url.lastIndexOf('/') + 1);
     QString fileName = url.fileName();
-
-    qDebug() << "baseUrl: " << baseUrl;
 
     m_hashCandidates.append(m_url + ".sha256");
     m_hashCandidates.append(m_url + ".sha1");
@@ -100,7 +110,6 @@ void DownloadTask::startHashDiscovery()
     m_hashCandidates.append(baseUrl + "md5sums.txt");
     m_hashCandidates.append(baseUrl + "checksums.txt");
 
-    qDebug() << "Search for a reference hash for:" << fileName;
     tryNextHashCandidate();
 }
 
@@ -114,7 +123,6 @@ void DownloadTask::tryNextHashCandidate()
 
     QNetworkAccessManager *manager = new QNetworkAccessManager(this);
     QString candidate = m_hashCandidates.takeFirst();
-    qDebug() << "Str: " << candidate;
     QNetworkRequest request((QUrl(candidate)));
 
     request.setHeader(QNetworkRequest::UserAgentHeader, "Mozilla/5.0");
@@ -146,6 +154,7 @@ void DownloadTask::parseHashContent(const QByteArray &content, const QString &ca
     QString data = QString::fromUtf8(content).trimmed();
     QString fileName = QUrl(m_url).fileName();
 
+    //!!!
     if (candidateUrl.toLower().contains("md5")) {
         //m_activeAlgorithm = QCryptographicHash::Md5;
         //m_chunkProcessor->setCryptographicAlgorithm(m_activeAlgorithm);
@@ -170,7 +179,6 @@ void DownloadTask::parseHashContent(const QByteArray &content, const QString &ca
 }
 
 void DownloadTask::onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal){
-    //m_timeoutTimer->start(m_timeoutSeconds * 1000);
 
     measureSpeed(bytesReceived + m_resumeDownloadPos);
 
@@ -230,10 +238,17 @@ void DownloadTask::adjustTimeout() {
 }
 
 void DownloadTask::onFinished(const DownloadTypes::FileInfo &fileInfo){
-    if(fileInfo == m_fileInfo){
+    QThread* currentObjThread = this->thread();
+    QThread* currentExecThread = QThread::currentThread();
 
+    qDebug() << "The object belongs to the thread:" << currentObjThread;
+    qDebug() << "The code is now running in the thread:" << currentExecThread;
+
+    qDebug() << "123456789";
+
+    if(fileInfo == m_fileInfo){
+        setStatus(Status::FileIntegrityCheck);
         m_networkManager->abort();
-        emit stopWrite(m_fileInfo);
 
         m_timeoutTimer->stop();
 
@@ -252,17 +267,16 @@ void DownloadTask::onFinished(const DownloadTypes::FileInfo &fileInfo){
             qDebug() << "m_remoteExpectedHash: " << m_remoteExpectedHash;
 
             bool isOk = (localHash == m_remoteExpectedHash);
-
-            //qDebug() << (isOk ? "✅ Файл валідний" : "❌ Файл пошкоджено!");
+            setStatus(Status::Completed);
+            qDebug() << (isOk ? "✅ file propely" : "❌ file corupted!");
         }else{
-            verifyHashOfFile();
-
             connect(this, &DownloadTask::checkFinished, this, [=](bool isCorrupted){
-                //qDebug() << (!isCorrupted ? "✅ Файл валідний" : "❌ Файл пошкоджено!");
+                qDebug() << (!isCorrupted ? "✅ file propely" : "❌ file corupted!");
+                setStatus(Status::Completed);
             }, Qt::SingleShotConnection);
-        }
 
-        setStatus(Status::Completed);
+            verifyHashOfFile();
+        }
     }
 }
 
@@ -273,18 +287,12 @@ void DownloadTask::stopDownload(){
 }
 
 void DownloadTask::pauseDownload(){
-    //setStatus(Status::Paused);
     syncAndStop();
 
     emit paused();
 }
 
 void DownloadTask::resumeDownload(){
-    //QThread* currentObjThread = this->thread();
-    //QThread* currentExecThread = QThread::currentThread();
-
-    //qDebug() << "The object belongs to the thread:" << currentObjThread;
-    //qDebug() << "The code is now running in the thread:" << currentExecThread;
 
     connect(this, &DownloadTask::checkFinished, this, [=](bool isCorrupted){
         if(isCorrupted){
@@ -326,8 +334,6 @@ void DownloadTask::onNetworkError(QNetworkReply::NetworkError errorCode){
     m_isHandlingError = true;
 
     syncAndStop();
-
-    qDebug() << "1";
 
     bool shouldRetry = isRetryableError(errorCode);
 

@@ -112,8 +112,6 @@ void NetworkManager::onFinished() {
 }
 
 void NetworkManager::onError(QNetworkReply::NetworkError code) {
-    //if (code == QNetworkReply::OperationCanceledError) return;
-
     if (m_reply) {
         emit errorOccurred(code);
     }
