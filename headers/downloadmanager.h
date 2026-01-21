@@ -18,6 +18,7 @@
 
 #include "downloadtypes.h"
 #include "networkmanager.h"
+#include "storagemanager.h"
 
 class DownloadManager : public QObject
 {
@@ -39,7 +40,9 @@ private:
     void createAndStartDownload(const QString &url, const QString &filePath, const QString& fileName, qint64 fileSize);
     DownloadTypes::ConflictResult checkForConflicts(const QString &url, const QString &filePuth);
 
-    NetworkManager *m_networkManager{nullptr};
+    NetworkManager *m_networkManager;
+    StorageManager *m_storageManager;
+    QThread *m_storageThread;
 
     int numOfSavedTask{0};
 
@@ -50,6 +53,7 @@ public slots:
     void downloadAll();
     void pauseAll();
     void deleteAll();
+    void deleteDownload(DownloadItem *item);
 private slots:
     void finished();
 signals:
@@ -58,6 +62,7 @@ signals:
     void setDownloadItemFromDB(DownloadItem*);
     void downloadReadyToAdd(DownloadItem*);
     void conflictsDetected(const QString &url, const DownloadTypes::ConflictResult &result);
+    void deleteDownloadItem(DownloadItem *item);
     void readyToQuit();
 };
 

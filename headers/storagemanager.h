@@ -3,6 +3,13 @@
 
 #include <QObject>
 #include <QFile>
+#include <QMap>
+#include <QVector>
+#include <qDebug>
+#include <QElapsedTimer>
+
+#include "downloadtypes.h"
+
 
 class StorageManager : public QObject
 {
@@ -10,22 +17,30 @@ class StorageManager : public QObject
 public:
     StorageManager(QObject *parent = nullptr);
     ~StorageManager();
-
-    bool openFile(const QString &filePath, qint64 totalSize);
-    void clearFile();
-    void closeFile();
-
 public slots:
-    void writeChunk(int index, const QByteArray &data, const QByteArray &hash);
-
+    void openFile(const DownloadTypes::FileInfo &fileInfo);
+    void writeChunk(const DownloadTypes::FileInfo &fileInfo, int index, const QByteArray &data);
+    void clearFile(const DownloadTypes::FileInfo &fileInfo);
+    void closeFile(const DownloadTypes::FileInfo &ileInfo);
+    void deleteAllInfo(const DownloadTypes::FileInfo &fileInfo);
 signals:
     void chunkSaved(int index);
-    void savedLastChunk();
+    void savedLastChunk(const DownloadTypes::FileInfo &fileInfo);
     void errorOccurred(const QString &message);
+    void fileOpen(const DownloadTypes::FileInfo &fileInfo);
+    void changeQuantityOfChunks(const DownloadTypes::FileInfo &fileInfo, qint64 valueOfChange);
 private:
-    QFile m_file;
-    qint64 m_totalSize = 0;
-    qint64 m_chunkSize = 0;
+    qint64 m_chunkSize{1024 * 1024};
+    qint64 position{0};
+
+    QMap<DownloadTypes::FileInfo, QVector<QByteArray>> m_data;
+
+    QMap<DownloadTypes::FileInfo, QFile*> m_files;
+
+    void writeToDisk(const DownloadTypes::FileInfo &fileInfo, qint64 index);
+    void flushAllData(const DownloadTypes::FileInfo &fileInfo);
+
+    void updateQuantityOfChunks(const DownloadTypes::FileInfo &fileInfo, qint64 writeTime, qint64 dataSize);
 };
 
 #endif // STORAGEMANAGER_H

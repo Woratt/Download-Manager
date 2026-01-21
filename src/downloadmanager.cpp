@@ -4,6 +4,15 @@ DownloadManager::DownloadManager(QObject *parent) : QObject(parent){
     m_threadPool = new ThreadPool(this);
     m_db = new DownloadDatabase(this);
     m_networkManager = new NetworkManager(this);
+    m_storageManager = new StorageManager();
+
+    m_storageThread = new QThread(this);
+
+    m_storageManager->moveToThread(m_storageThread);
+
+    connect(m_storageThread, &QThread::finished, m_storageManager, &QObject::deleteLater);
+
+    m_storageThread->start();
 
     connect(m_threadPool, &ThreadPool::allDownloadsStoped, this, [this](){
         QVector<QPair<DownloadItem*, DownloadTask*>> pairs;
@@ -25,14 +34,14 @@ void DownloadManager::processDownloadRequest(const QString &url, const QString &
             return;
         }
 
-        QString finalFileName = !userChoice.newFileName.isEmpty() ? userChoice.newFileName : info.fileName;
+        QString finalFileName = !userChoice.newFileName.isEmpty() ? userChoice.newFileName + info.suffix : info.fileName;
         QString filePath = QDir(saveDir).absoluteFilePath(finalFileName);
 
-        DownloadTypes::ConflictResult result = checkForConflicts(url, filePath);
+        DownloadTypes::ConflictResult result = checkForConflicts(info.url.toString(), filePath);
 
         if(result.type == DownloadTypes::NoConflict || userChoice.action == DownloadTypes::Download ||
             (userChoice.action == DownloadTypes::DownloadWithNewName && result.type == DownloadTypes::UrlDownloading)){
-            createAndStartDownload(url, filePath, finalFileName, info.fileSize);
+            createAndStartDownload(info.url.toString(), filePath, finalFileName, info.fileSize);
         } else if(userChoice.action == DownloadTypes::Cancel) {
 
         }else{
@@ -49,8 +58,6 @@ DownloadTypes::ConflictResult DownloadManager::checkForConflicts(const QString &
     DownloadTypes::ConflictResult result;
 
     result.filePath = filePuth;
-
-    qDebug() << result.filePath;
 
     bool fileExists = QFile::exists(result.filePath);
 
@@ -69,25 +76,46 @@ DownloadTypes::ConflictResult DownloadManager::checkForConflicts(const QString &
 }
 
 void DownloadManager::createAndStartDownload(const QString &url, const QString &filePath, const QString& nameOfFile, qint64 fileSize) {
+    DownloadTypes::FileInfo fileInfo;
+    fileInfo.fileName = nameOfFile;
+    fileInfo.filePath = filePath;
+    fileInfo.fileSize = fileSize;
+
     DownloadItem *item = new DownloadItem(url, filePath, nameOfFile);
-    DownloadTask *task = new DownloadTask(url, filePath, fileSize);
+    DownloadTask *task = new DownloadTask(url, fileInfo);
+
+    QMetaObject::invokeMethod(m_storageManager, "openFile",
+                              Qt::QueuedConnection,
+                              Q_ARG(DownloadTypes::FileInfo, fileInfo));
+
     m_items.push_back(item);
 
+    connect(m_storageManager, &StorageManager::savedLastChunk, task, &DownloadTask::onFinished, Qt::QueuedConnection);
+    connect(m_storageManager, &StorageManager::changeQuantityOfChunks, task, &DownloadTask::changeQuantityOfChunks, Qt::QueuedConnection);
+    connect(task, &DownloadTask::openFile, m_storageManager, &StorageManager::openFile, Qt::QueuedConnection);
+    connect(task, &DownloadTask::clearFile, m_storageManager, &StorageManager::clearFile, Qt::QueuedConnection);
+    connect(task, &DownloadTask::stopWrite, m_storageManager, &StorageManager::closeFile, Qt::QueuedConnection);
+    connect(task, &DownloadTask::writeChunk, m_storageManager, &StorageManager::writeChunk, Qt::QueuedConnection);
     connect(item, &DownloadItem::statusChanged, task, &DownloadTask::setStatus, Qt::QueuedConnection);
     connect(task, &DownloadTask::progressChanged, item, &DownloadItem::onProgressChanged, Qt::QueuedConnection);
     connect(task, &DownloadTask::statusChanged, m_threadPool, &ThreadPool::chackWhatStatus, Qt::QueuedConnection);
     connect(task, &DownloadTask::statusChanged, item, &DownloadItem::chackWhatStatus, Qt::QueuedConnection);
-    connect(item, &DownloadItem::deleteDownload, m_db, &DownloadDatabase::deleteDownload);
+    connect(item, &DownloadItem::deleteDownload, this, &DownloadManager::deleteDownload);
     connect(item, &DownloadItem::finishedDownload, this, &DownloadManager::finished);
-
     connect(item, &DownloadItem::ChangedBt, this, &DownloadManager::changeBt);
 
-    m_threadPool->addTask(task);
+    connect(m_storageManager, &StorageManager::fileOpen, this, [=](const DownloadTypes::FileInfo &fileInfo){
+        if(fileInfo == task->getFileInfo()){
 
-    m_itemTask[item] = task;
-    m_urlsDownloading.append(url);
+            m_threadPool->addTask(task);
 
-    emit downloadReadyToAdd(item);
+            m_itemTask[item] = task;
+            m_urlsDownloading.append(url);
+
+            emit downloadReadyToAdd(item);
+        }
+    }, static_cast<Qt::ConnectionType>(Qt::SingleShotConnection | Qt::QueuedConnection));
+
 }
 
 void DownloadManager::finished(){
@@ -138,31 +166,49 @@ void DownloadManager::deleteAll(){
 void DownloadManager::setItemsFromDB(){
     QVector<DownloadRecord> records = m_db->getDownloads();
 
-    qDebug() << "downloads size: " << records.size();
     for(auto& record : records){
+        DownloadTypes::FileInfo fileInfo;
+        fileInfo.fileName = record.m_name;
+        fileInfo.filePath = record.m_filePath;
+        fileInfo.fileSize = record.m_totalBytes;
         DownloadItem* item = new DownloadItem(record.m_url, record.m_filePath, record.m_name);
-        DownloadTask* task = new DownloadTask(record.m_url, record.m_filePath, 0);
+        DownloadTask* task = new DownloadTask(record.m_url, fileInfo);
 
         m_items.push_back(item);
 
         item->updateFromDb(record);
         task->updateFromDb(record);
 
+        connect(m_storageManager, &StorageManager::fileOpen, this, [=](const DownloadTypes::FileInfo &fileInfo){
+            if(fileInfo == task->getFileInfo() && !m_itemTask[item]){
+
+                m_threadPool->addTaskFromDB(task);
+
+                m_itemTask[item] = task;
+                m_urlsDownloading.append(record.m_url);
+
+                emit downloadReadyToAdd(item);
+            }
+        }, Qt::QueuedConnection);
+
+        QMetaObject::invokeMethod(m_storageManager, "openFile",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(DownloadTypes::FileInfo, fileInfo));
+
+        connect(m_storageManager, &StorageManager::savedLastChunk, task, &DownloadTask::onFinished, Qt::QueuedConnection);
+        connect(m_storageManager, &StorageManager::changeQuantityOfChunks, task, &DownloadTask::changeQuantityOfChunks, Qt::QueuedConnection);
+        connect(task, &DownloadTask::openFile, m_storageManager, &StorageManager::openFile, Qt::QueuedConnection);
+        connect(task, &DownloadTask::clearFile, m_storageManager, &StorageManager::clearFile, Qt::QueuedConnection);
+        connect(task, &DownloadTask::stopWrite, m_storageManager, &StorageManager::closeFile, Qt::QueuedConnection);
+        connect(task, &DownloadTask::writeChunk, m_storageManager, &StorageManager::writeChunk, Qt::QueuedConnection);
         connect(item, &DownloadItem::statusChanged, task, &DownloadTask::setStatus, Qt::QueuedConnection);
         connect(task, &DownloadTask::progressChanged, item, &DownloadItem::onProgressChanged, Qt::QueuedConnection);
         connect(task, &DownloadTask::statusChanged, m_threadPool, &ThreadPool::chackWhatStatus, Qt::QueuedConnection);
         connect(task, &DownloadTask::statusChanged, item, &DownloadItem::chackWhatStatus, Qt::QueuedConnection);
-        connect(item, &DownloadItem::deleteDownload, m_db, &DownloadDatabase::deleteDownload);
+        connect(item, &DownloadItem::deleteDownload, this, &DownloadManager::deleteDownload);
         connect(item, &DownloadItem::finishedDownload, this, &DownloadManager::finished);
 
         connect(item, &DownloadItem::ChangedBt, this, &DownloadManager::changeBt);
-
-        m_threadPool->addTaskFromDB(task);
-
-        m_itemTask[item] = task;
-        m_urlsDownloading.append(item->getUrl());
-
-        emit downloadReadyToAdd(item);
     }
 }
 
@@ -178,4 +224,32 @@ void DownloadManager::prepareToExit(){
     m_threadPool->stopAllDownloads(tasks);
 }
 
-DownloadManager::~DownloadManager(){}
+void DownloadManager::deleteDownload(DownloadItem *item){
+    if (!item) return;
+
+    DownloadTask *task = m_itemTask.value(item);
+
+    if (task) {
+        m_threadPool->removeTask(task);
+
+        QMetaObject::invokeMethod(m_storageManager, "deleteAllInfo",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(DownloadTypes::FileInfo, task->getFileInfo()));
+
+        task->disconnect();
+
+        task->deleteLater();
+    }
+
+    m_itemTask.remove(item);
+    m_items.removeOne(item);
+    m_db->deleteDownload(item);
+    m_urlsDownloading.removeOne(item->getUrl());
+    emit deleteDownloadItem(item);
+}
+
+DownloadManager::~DownloadManager(){
+    m_storageThread->quit();
+    m_storageThread->wait();
+    m_storageThread->deleteLater();
+}

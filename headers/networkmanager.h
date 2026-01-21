@@ -5,6 +5,7 @@
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QFileInfo>
 
 struct RemoteFileInfo {
     QUrl url;
@@ -14,6 +15,7 @@ struct RemoteFileInfo {
     QString mimeType;
     bool isValid = false;
     QString errorString;
+    QString suffix;
 };
 
 
@@ -42,7 +44,7 @@ private slots:
     void onError(QNetworkReply::NetworkError);
 private:
     QNetworkAccessManager *m_manager;
-    QNetworkReply *m_reply{nullptr};
+    QNetworkReply *m_reply;
 };
 
 

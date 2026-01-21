@@ -123,13 +123,15 @@ QVector<DownloadRecord> DownloadDatabase::getDownloads()
                "WHEN 'start_new_task' THEN 4 "
                "WHEN 'resumed_in_pending' THEN 5 "
                "WHEN 'pending' THEN 6 "
-               "WHEN 'paused' THEN 7 "
-               "WHEN 'paused_new' THEN 8 "
-               "WHEN 'paused_resume' THEN 9 "
-               "WHEN 'completed' THEN 10 "
-               "WHEN 'error' THEN 11 "
-               "WHEN 'cancelled' THEN 12 "
-               "WHEN 'deleted' THEN 13 "
+               "WHEN 'prepared' THEN 7 "
+               "WHEN 'preparing' THEN 8 "
+               "WHEN 'paused' THEN 9 "
+               "WHEN 'paused_new' THEN 10 "
+               "WHEN 'paused_resume' THEN 11 "
+               "WHEN 'completed' THEN 12 "
+               "WHEN 'error' THEN 13 "
+               "WHEN 'cancelled' THEN 14 "
+               "WHEN 'deleted' THEN 15 "
                "END ASC;");
     while(query.next()){
         DownloadRecord record;
@@ -161,11 +163,6 @@ void DownloadDatabase::saveDownloads(QVector<DownloadRecord> records){
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         query.prepare(request);
-
-        //qDebug() << "record.m_expectedHash: " << record.m_expectedHash;
-        //qDebug() << "record.m_actualHash: " << record.m_actualHash;
-        //qDebug() << "record.m_hashAlgorithm: " << record.m_hashAlgorithm;
-        //qDebug() << "record.m_chunkHashes" << record.m_chunkHashes;
 
         query.addBindValue(record.m_name);
         query.addBindValue(record.m_url);

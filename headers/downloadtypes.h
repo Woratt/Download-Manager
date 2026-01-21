@@ -7,12 +7,12 @@
 class DownloadItem;
 
 namespace DownloadTypes {
-// Enum для типів конфліктів
+
 enum ConflictType {
-    NoConflict,      // Немає конфліктів
-    FileExists,      // Файл вже існує на диску
-    UrlDownloading,  // Цей URL вже завантажується
-    BothConflicts    // Обидва конфлікти
+    NoConflict,
+    FileExists,
+    UrlDownloading,
+    BothConflicts
 };
 
 enum Action {
@@ -24,7 +24,7 @@ enum Action {
 
 struct UserChoice {
     Action action = Undetermined;
-    QString newFileName; // Для перейменування
+    QString newFileName;
 };
 
 
@@ -32,6 +32,22 @@ struct ConflictResult {
     ConflictType type = NoConflict;
     QString filePath;
     bool existingDownloads;
+};
+
+struct FileInfo{
+    QString filePath;
+    QString fileName;
+    qint64 fileSize;
+    qint64 quantityOfChunks{8};
+
+    bool operator<(const FileInfo &other) const {
+        return filePath < other.filePath;
+    }
+
+    bool operator==(const FileInfo &other) const {
+        if(other.fileName == fileName && other.filePath == filePath && other.fileSize == fileSize) return true;
+        else return false;
+    }
 };
 
 

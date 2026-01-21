@@ -25,6 +25,9 @@ class DownloadTask :  public QObject
     Q_OBJECT
 public:
     enum Status {
+        FileIntegrityCheck,
+        Preparing,
+        Prepared,
         Pending,
         Downloading,
         Resumed,
@@ -40,12 +43,10 @@ public:
         Deleted
     };
 
-    DownloadTask(const QString&, const QString&, qint64 fileSize, QObject *parent = nullptr);
+    DownloadTask(const QString&, DownloadTypes::FileInfo fileInfo, QObject *parent = nullptr);
     ~DownloadTask();
-    Status getStatus(){
-        qDebug() << "Status: " << m_status;
-        return m_status;
-    };
+    Status getStatus(){ return m_status; };
+    DownloadTypes::FileInfo getFileInfo() const { return m_fileInfo; };
     void updateFromDb(const DownloadRecord &record);
 signals:
     void progressChanged(qint64, qint64);
@@ -53,24 +54,31 @@ signals:
     void paused();
     void stoped();
     void start();
+    void deletedownloadedData(const DownloadTypes::FileInfo &fileInfo);
+    void clearFile(const DownloadTypes::FileInfo &fileInfo);
+    void openFile(const DownloadTypes::FileInfo &fileInfo, qint64 resumeDownloadPos);
+    void stopWrite(const DownloadTypes::FileInfo &fileInfo);
     void checkFinished(bool isCorrupted);
-    public slots:
+    void writeChunk(const DownloadTypes::FileInfo &fileInfo, int index, const QByteArray &data);
+public slots:
     void startDownload();
     void pauseDownload();
     void resumeDownload();
+    void onFinished(const DownloadTypes::FileInfo &fileInfo);
     void stopDownload();
     void setStatus(Status);
-    void saveChunckHash(int index, const QByteArray &data, const QByteArray &hash);
+    void saveAndWriteChunckHash(int index, const QByteArray &data, const QByteArray &hash);
+    void changeQuantityOfChunks(const DownloadTypes::FileInfo &fileInfo, qint64 valueOfChange);
 private slots:
     void onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
-    void onFinished();
     void onNetworkError(QNetworkReply::NetworkError);
 private:
     QString m_url;
-    QString m_filePath;
     QString m_remoteExpectedHash;
     QString m_actualHash;
     qint64 m_resumeDownloadPos;
+
+    DownloadTypes::FileInfo m_fileInfo;
 
     QStringList m_hashCandidates;
     QVector<QByteArray> m_chunkHashes;
@@ -100,7 +108,7 @@ private:
     bool m_isHandlingError{false};
 
 
-    Status m_status = Status::Pending;
+    Status m_status = Status::Preparing;
 
     void handleFailure(const QString& errorContext, bool shouldRetry);
     bool isRetryableError(QNetworkReply::NetworkError);
@@ -114,7 +122,6 @@ private:
 
     ChunkProcessor *m_chunkProcessor;
     NetworkManager *m_networkManager;
-    StorageManager *m_storageManager;
 
     void setUpConnections();
 

@@ -83,9 +83,9 @@ void MainWindow::setUpConnections(){
     connect(m_downloadManager, &DownloadManager::hideButtons, this, [=](){
         setLayoutForSelectedItemsBtVisible(false);
     });
-    connect(m_downloadManager, &DownloadManager::setDownloadItemFromDB, this, &MainWindow::addDownloadItem);
-    connect(m_downloadManager, &DownloadManager::conflictsDetected, this, &MainWindow::handleDownloadConflicts);
 
+    connect(m_downloadManager, &DownloadManager::conflictsDetected, this, &MainWindow::handleDownloadConflicts);
+    connect(m_downloadManager, &DownloadManager::deleteDownloadItem, this, &MainWindow::deleteDownloadItem);
     connect(m_downloadAllItemsBt, &QPushButton::clicked, m_downloadManager, &DownloadManager::downloadAll);
     connect(m_pauseAllItemsBt, &QPushButton::clicked, m_downloadManager, &DownloadManager::pauseAll);
     connect(m_deleteAllItemsBt, &QPushButton::clicked, m_downloadManager, &DownloadManager::deleteAll);
@@ -93,7 +93,6 @@ void MainWindow::setUpConnections(){
 }
 
 void MainWindow::handleDownloadConflicts(const QString &url, const DownloadTypes::ConflictResult &conflict){
-    qDebug() << conflict.type;
     DownloadTypes::UserChoice choice = showConflictDialog(url, conflict.type);
 
     m_downloadManager->processDownloadRequest(url, m_dir, choice);
@@ -196,14 +195,8 @@ void MainWindow::addDownloadItem(DownloadItem* item){
 
     listItem->setSizeHint(QSize(item->width(), item->height()));
 
-    connect(item, &DownloadItem::deleteDownload, this, &MainWindow::deleteDownloadItem);
-
     QThread* currentObjThread = this->thread();
     QThread* currentExecThread = QThread::currentThread();
-
-    qDebug() << "MainWindow належить потоку:" << currentObjThread;
-    qDebug() << "MainWindow Код зараз виконується у потоці:" << currentExecThread;
-
 }
 
 void MainWindow::deleteDownloadItem(DownloadItem* item){
@@ -215,6 +208,7 @@ void MainWindow::deleteDownloadItem(DownloadItem* item){
             break;
         }
     }
+    item->deleteLater();
 }
 
 void MainWindow::setLayoutForSelectedItemsBtVisible(bool visible)

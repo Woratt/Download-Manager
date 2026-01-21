@@ -8,6 +8,7 @@ find_package(Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core)
 
 qt_standard_project_setup()
 
@@ -38,6 +39,7 @@ target_link_libraries(DownloadManager
         Qt::Sql
 )
 target_link_libraries(DownloadManager PRIVATE Qt6::Core Qt6::Widgets Qt6::Sql)
+target_link_libraries(DownloadManager PRIVATE Qt6::Core)
 target_link_libraries(DownloadManager PRIVATE Qt6::Core)
 target_link_libraries(DownloadManager PRIVATE Qt6::Core)
 target_link_libraries(DownloadManager PRIVATE Qt6::Core)

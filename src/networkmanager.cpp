@@ -45,6 +45,9 @@ void NetworkManager::getRemoteFileInfo(const QUrl& url){
             info.supportsRange = (reply->rawHeader("Accept-Ranges") == "bytes");
             info.mimeType = reply->header(QNetworkRequest::ContentTypeHeader).toString();
             info.fileName = parseFileName(reply);
+
+            QFileInfo fileDetails(info.fileName);
+            info.suffix = "." + fileDetails.suffix();
         } else {
             info.isValid = false;
             info.errorString = reply->errorString();
@@ -109,8 +112,6 @@ void NetworkManager::onFinished() {
 }
 
 void NetworkManager::onError(QNetworkReply::NetworkError code) {
-    //if (code == QNetworkReply::OperationCanceledError) return;
-
     if (m_reply) {
         emit errorOccurred(code);
     }

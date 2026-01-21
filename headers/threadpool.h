@@ -19,6 +19,7 @@ public:
     void addTask(DownloadTask*);
     void addTaskFromDB(DownloadTask*);
     void stopAllDownloads(QVector<DownloadTask*>&);
+    void removeTask(DownloadTask *task);
     ~ThreadPool();
 signals:
     void allDownloadsStoped();
