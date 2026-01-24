@@ -72,7 +72,7 @@ void DownloadItem::setUpUI(){
 void DownloadItem::setUpConnections()
 {
     //connect(m_pauseCheckBox, &Toogle::checkStateChanged, this, &DownloadItem::onPauseCheckBox);
-    connect(m_pauseCheckBox, &QCheckBox::checkStateChanged, this, [=](bool checked){
+    connect(m_pauseCheckBox, &QCheckBox::stateChanged, this, [=](bool checked){
         onPauseCheckBox();
     });
     connect(this, &DownloadItem::updateProgress, this, &DownloadItem::updateProgressChange);
