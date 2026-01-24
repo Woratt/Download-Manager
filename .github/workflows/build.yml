@@ -34,8 +34,16 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y qt6-base-dev qt6-tools-dev libgtest-dev cmake build-essential 
+          sudo apt-get update && apt-get install -y \
+                build-essential \
+                cmake \
+                qt6-base-dev \
+                libqt6network6 \
+                libqt6widgets6 \
+                libqt6sql6 \
+                libgl1-mesa-dev \
+                libxkbcommon-dev \
+                && rm -rf /var/lib/apt/lists/*
 
       - name: Configure CMake
         run: |
