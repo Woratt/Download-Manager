@@ -5,7 +5,6 @@
 #include <QFile>
 #include <QMap>
 #include <QVector>
-#include <qDebug>
 #include <QElapsedTimer>
 
 #include "downloadtypes.h"

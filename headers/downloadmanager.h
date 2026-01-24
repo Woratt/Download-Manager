@@ -5,7 +5,7 @@
 #include <QWidget>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
-#include <Qfile>
+#include <QFile>
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QDir>
