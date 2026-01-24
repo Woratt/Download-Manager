@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(DownloadManager LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Sql)
+find_package(Qt6 6.2 REQUIRED COMPONENTS Core Widgets Network Sql)
 find_package(Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt6 REQUIRED COMPONENTS Core)
