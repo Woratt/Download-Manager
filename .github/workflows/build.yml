@@ -43,7 +43,6 @@ jobs:
                 libqt6sql6 \
                 libgl1-mesa-dev \
                 libxkbcommon-dev \
-                && rm -rf /var/lib/apt/lists/*
 
       - name: Configure CMake
         run: |
