@@ -121,9 +121,17 @@ void ThreadPool::resumeDownload(std::shared_ptr<DownloadTask> task){
     {
         task->setStatus(DownloadTask::Status::ResumedInDownloading);
 
-        QThread *thread = m_idleThreads.takeFirst();
-        task->moveToThread(thread);
-        m_busyThreads[thread] = task;
+        QThread *workerThread = m_idleThreads.takeFirst();
+
+        if (task->thread() == QThread::currentThread()) {
+            task->moveToThread(workerThread);
+        } else {
+            QMetaObject::invokeMethod(task.get(), [task, workerThread]() {
+                task->moveToThread(workerThread);
+            }, Qt::BlockingQueuedConnection);
+        }
+
+        m_busyThreads[workerThread] = task;
 
         QMetaObject::invokeMethod(task.get(), "resumeDownload", Qt::QueuedConnection);
     }
@@ -155,8 +163,14 @@ void ThreadPool::stopAllDownloads(QVector<std::shared_ptr<DownloadTask>>& tasks)
             connect(taskPtr.get(), &DownloadTask::stoped, this, [this, taskPtr, thread, remaining]() {
 
                 if (taskPtr) {
-                    taskPtr->moveToThread(this->thread());
-                }
+                    if(taskPtr->thread() == QThread::currentThread())
+                        taskPtr->moveToThread(this->thread());
+                    }else{
+                        QThread *workerThread = this->thread();
+                        QMetaObject::invokeMethod(taskPtr.get(), [taskPtr, workerThread]() {
+                            taskPtr->moveToThread(workerThread);
+                        }, Qt::BlockingQueuedConnection);
+                    }
 
                 this->returnThreadToPool(thread);
                 this->m_busyThreads.remove(thread);
@@ -198,7 +212,15 @@ void ThreadPool::onTaskPaused(std::shared_ptr<DownloadTask> task){
 
         connect(task.get(), &DownloadTask::paused, this, [this, task, thread]() {
             if (task->getStatus() == DownloadTask::Status::Paused) {
-                task->moveToThread(this->thread());
+                QThread *workerThread = this->thread();
+
+                if (task->thread() == QThread::currentThread()) {
+                    task->moveToThread(workerThread);
+                } else {
+                    QMetaObject::invokeMethod(task.get(), [task, workerThread]() {
+                        task->moveToThread(workerThread);
+                    }, Qt::BlockingQueuedConnection);
+                }
                 this->returnThreadToPool(thread);
                 this->m_busyThreads.remove(thread);
                 this->startNextTask();
