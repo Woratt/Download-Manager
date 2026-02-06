@@ -71,7 +71,6 @@ void DownloadItem::setUpUI(){
 
 void DownloadItem::setUpConnections()
 {
-    //connect(m_pauseCheckBox, &Toogle::checkStateChanged, this, &DownloadItem::onPauseCheckBox);
     connect(m_pauseCheckBox, &QCheckBox::stateChanged, this, [=](bool checked){
         onPauseCheckBox();
     });
@@ -86,9 +85,6 @@ void DownloadItem::setUpConnections()
         emit deleteDownload(this);
     });
 
-    /*connect(m_checkBox, &QCheckBox::checkStateChanged, this, [=](bool checked){
-        emit ChangedBt(this, checked);
-    });*/
     connect(m_checkBox, &QCheckBox::stateChanged, this, [=](int state){
         bool checked = (state == Qt::Checked);
         emit ChangedBt(this, checked);

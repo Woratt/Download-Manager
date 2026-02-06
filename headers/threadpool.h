@@ -16,27 +16,27 @@ class ThreadPool : public QObject
     Q_OBJECT
 public:
     explicit ThreadPool(QObject *parent = nullptr);
-    void addTask(DownloadTask*);
-    void addTaskFromDB(DownloadTask*);
-    void stopAllDownloads(QVector<DownloadTask*>&);
-    void removeTask(DownloadTask *task);
+    void addTask(std::shared_ptr<DownloadTask> task);
+    void addTaskFromDB(std::shared_ptr<DownloadTask> task);
+    void stopAllDownloads(QVector<std::shared_ptr<DownloadTask>>& tasks);
+    void removeTask(std::shared_ptr<DownloadTask>);
     ~ThreadPool();
 signals:
     void allDownloadsStoped();
 public slots:
-    void onTaskFinished(DownloadTask*);
-    void resumeDownload(DownloadTask*);
-    void onTaskPaused(DownloadTask*);
-    void chackWhatStatus(DownloadTask::Status);
+    void onTaskFinished(std::shared_ptr<DownloadTask> task);
+    void resumeDownload(std::shared_ptr<DownloadTask> task);
+    void onTaskPaused(std::shared_ptr<DownloadTask> task);
+    void chackWhatStatus(DownloadTask::Status status);
 private:
     mutable QRecursiveMutex m_mutex;
     int m_maxThread;
     QVector<QThread*> m_idleThreads;
-    QHash<QThread*, DownloadTask*> m_busyThreads;
+    QHash<QThread*, std::shared_ptr<DownloadTask>> m_busyThreads;
 
-    QQueue<DownloadTask*> m_pendingQueue;
+    QQueue<std::shared_ptr<DownloadTask>> m_pendingQueue;
 
-    void startNewTask(DownloadTask*);
+    void startNewTask(std::shared_ptr<DownloadTask> task);
     void returnThreadToPool(QThread*);
     void startNextTask();
 

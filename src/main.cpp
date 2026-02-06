@@ -4,6 +4,7 @@
 
 int main(int argc, char *argv[])
 {
+    qRegisterMetaType<std::shared_ptr<DownloadTask>>("std::shared_ptr<DownloadTask>");
     QApplication a(argc, argv);
     MainWindow w;
     w.show();

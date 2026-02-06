@@ -2,13 +2,7 @@ cmake_minimum_required(VERSION 3.19)
 project(DownloadManager LANGUAGES CXX)
 
 find_package(Qt6 6.2 REQUIRED COMPONENTS Core Widgets Network Sql)
-find_package(Qt6 REQUIRED COMPONENTS Core)
-find_package(Qt6 REQUIRED COMPONENTS Core)
-find_package(Qt6 REQUIRED COMPONENTS Core)
-find_package(Qt6 REQUIRED COMPONENTS Core)
-find_package(Qt6 REQUIRED COMPONENTS Core)
-find_package(Qt6 REQUIRED COMPONENTS Core)
-find_package(Qt6 REQUIRED COMPONENTS Core)
+#find_package(Qt6 REQUIRED COMPONENTS Core)
 
 qt_standard_project_setup()
 
@@ -39,12 +33,6 @@ target_link_libraries(DownloadManager
         Qt::Sql
 )
 target_link_libraries(DownloadManager PRIVATE Qt6::Core Qt6::Widgets Qt6::Sql)
-target_link_libraries(DownloadManager PRIVATE Qt6::Core)
-target_link_libraries(DownloadManager PRIVATE Qt6::Core)
-target_link_libraries(DownloadManager PRIVATE Qt6::Core)
-target_link_libraries(DownloadManager PRIVATE Qt6::Core)
-target_link_libraries(DownloadManager PRIVATE Qt6::Core)
-target_link_libraries(DownloadManager PRIVATE Qt6::Core)
 target_link_libraries(DownloadManager PRIVATE Qt6::Core)
 
 include(GNUInstallDirs)

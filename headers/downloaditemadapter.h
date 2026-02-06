@@ -8,7 +8,7 @@
 class DownloadAdapter
 {
 public:
-    static QVector<DownloadRecord> toRecord(const QVector<QPair<DownloadItem*, DownloadTask*>>& pairs){
+    static QVector<DownloadRecord> toRecord(const QVector<QPair<DownloadItem*, std::shared_ptr<DownloadTask>>>& pairs){
         QVector<DownloadRecord> records;
         for(auto pair : pairs){
             DownloadRecord record;

@@ -9,8 +9,8 @@ StorageManager::~StorageManager() {
 }
 
 void StorageManager::openFile(const DownloadTypes::FileInfo &fileInfo) {
-    if(!m_files[fileInfo]){
-        QFile *file = new QFile(fileInfo.filePath, this);
+    if(!m_files.contains(fileInfo)){
+        std::shared_ptr<QFile> file = std::make_shared<QFile>(fileInfo.filePath);
         if (!file->open(QIODevice::ReadWrite)) {
             emit errorOccurred("Не вдалося відкрити файл для запису: " + file->errorString());
         }
@@ -47,7 +47,7 @@ void StorageManager::writeChunk(const DownloadTypes::FileInfo &fileInfo, int ind
 void StorageManager::writeToDisk(const DownloadTypes::FileInfo &fileInfo, qint64 lastIndex){
     if (!m_files.contains(fileInfo)) return;
 
-    QFile *file = m_files[fileInfo];
+    std::shared_ptr<QFile> file = m_files[fileInfo];
     auto &chunks = m_data[fileInfo];
     if (chunks.isEmpty()) return;
 
@@ -90,7 +90,7 @@ void StorageManager::writeToDisk(const DownloadTypes::FileInfo &fileInfo, qint64
 void StorageManager::flushAllData(const DownloadTypes::FileInfo &fileInfo){
     if (!m_files.contains(fileInfo)) return;
 
-    QFile *file = m_files[fileInfo];
+    std::shared_ptr<QFile> file = m_files[fileInfo];
     auto &chunks = m_data[fileInfo];
     if (chunks.isEmpty()) return;
 

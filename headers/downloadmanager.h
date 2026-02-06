@@ -35,7 +35,7 @@ private:
     QVector<DownloadItem*> m_selectedItems;
     QVector<DownloadItem*> m_items;
     QVector<QString> m_urlsDownloading;
-    QHash<DownloadItem*, DownloadTask*> m_itemTask;
+    QHash<DownloadItem*, std::shared_ptr<DownloadTask>> m_itemTask;
 
     void createAndStartDownload(const QString &url, const QString &filePath, const QString& fileName, qint64 fileSize);
     DownloadTypes::ConflictResult checkForConflicts(const QString &url, const QString &filePuth);

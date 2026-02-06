@@ -34,7 +34,7 @@ private:
 
     QMap<DownloadTypes::FileInfo, QVector<QByteArray>> m_data;
 
-    QMap<DownloadTypes::FileInfo, QFile*> m_files;
+    QMap<DownloadTypes::FileInfo, std::shared_ptr<QFile>> m_files;
 
     void writeToDisk(const DownloadTypes::FileInfo &fileInfo, qint64 index);
     void flushAllData(const DownloadTypes::FileInfo &fileInfo);
