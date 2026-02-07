@@ -3,8 +3,6 @@
 
 #include <QObject>
 #include <QRunnable>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
 #include <QFile>
 #include <QEventLoop>
 #include <QThread>
