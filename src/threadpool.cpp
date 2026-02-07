@@ -46,7 +46,7 @@ void ThreadPool::addTaskFromDB(std::shared_ptr<DownloadTask> task){
     case DownloadTask::Status::Cancelled:
         break;
     case DownloadTask::Status::Paused:
-        onTaskPaused(task);
+        m_pendingQueue.enqueue(task);
         break;
     case DownloadTask::Status::Pending:
         m_pendingQueue.enqueue(task);
@@ -264,7 +264,19 @@ void ThreadPool::chackWhatStatus(DownloadTask::Status status){
         }
     }
 
-    if (!task) return;
+    if (!task){
+        for(auto it = m_pendingQueue.begin(); it != m_pendingQueue.end(); ++it){
+            if ((*it).get() == rawTask) {
+                task = *it;
+                break;
+            }
+        }
+    }
+
+    if(!task){
+        qDebug() << "Task didn't find";
+        return;
+    }
 
     switch (status) {
     case DownloadTask::Status::Resumed:
