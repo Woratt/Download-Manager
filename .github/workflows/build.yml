@@ -24,10 +24,7 @@ jobs:
 
       - name: Configure CMake
         run: |
-          cmake -S . -B build \
-            -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake \
-            -DCMAKE_PREFIX_PATH=$(brew --prefix qt) \
-            -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build
 
       - name: Build and Test
         run: |
@@ -56,10 +53,7 @@ jobs:
           
       - name: Configure CMake
         run: |
-          cmake -S . -B build \
-            -DCMAKE_TOOLCHAIN_FILE=conan_out/conan_toolchain.cmake \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH=$(brew --prefix qt 2>/dev/null || echo "/usr/lib/qt6")
+          cmake -S . -B build 
       
       - name: Build project
         run: |
