@@ -15,16 +15,20 @@ jobs:
       - name: Install dependencies 
         run: |
           brew update
-          brew install cmake qt
+          brew install cmake qt conan
+          
+      - name: Conan Install
+        run: |
+          conan profile detect --force
+          conan install . --output-folder=build --build=missing -s build_type=Release
 
       - name: Configure CMake
         run: |
-          cmake -S . -B build -DCMAKE_PREFIX_PATH=$(brew --prefix qt)
-
-      - name: Build project
+          cmake --preset conan-release
+          
+      - name: Build and Test
         run: |
-          cmake --build build -- -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
-
+          cmake --build --preset conan-release
 
   build-linux:
     runs-on: ubuntu-latest
@@ -35,19 +39,20 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y \
-                build-essential \
-                cmake \
-                qt6-base-dev \
-                libqt6network6 \
-                libqt6widgets6 \
-                libqt6sql6 \
-                libgl1-mesa-dev \
-                libxkbcommon-dev \
+                build-essential cmake qt6-base-dev \
+                libqt6network6 libqt6widgets6 libqt6sql6 \
+                libgl1-mesa-dev libxkbcommon-dev
+          pip3 install conan
 
+      - name: Conan Install
+        run: |
+          conan profile detect --force
+          conan install . --output-folder=build --build=missing -s build_type=Release
+          
       - name: Configure CMake
         run: |
-          cmake -S . -B build
+          cmake --preset conan-release
       
       - name: Build project
         run: |
-          cmake --build build -- -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
+          cmake --build --preset conan-release
