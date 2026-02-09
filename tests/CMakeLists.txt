@@ -13,4 +13,5 @@ target_link_libraries(unit_tests PRIVATE
     Qt6::Test
 )
 
-add_test(NAME AllTests COMMAND unit_tests)
+include(GoogleTest)
+gtest_discover_tests(unit_tests)
