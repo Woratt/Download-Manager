@@ -9,6 +9,9 @@ set(CORE_HEADERS
     ${CMAKE_SOURCE_DIR}/headers/networkmanager.h
     ${CMAKE_SOURCE_DIR}/headers/chunkprocessor.h
     ${CMAKE_SOURCE_DIR}/headers/storagemanager.h
+    ${CMAKE_SOURCE_DIR}/headers/mainwindow.h
+    ${CMAKE_SOURCE_DIR}/headers/downloaditem.h
+    ${CMAKE_SOURCE_DIR}/headers/toogle.h
 )
 
 set(CORE_SOURCES
@@ -21,6 +24,10 @@ set(CORE_SOURCES
     networkmanager.cpp
     chunkprocessor.cpp
     storagemanager.cpp
+    main.cpp
+    mainwindow.cpp
+    downloaditem.cpp
+    toogle.cpp
 )
 
 add_library(DownloadCore STATIC ${CORE_HEADERS} ${CORE_SOURCES})
@@ -40,12 +47,9 @@ set(APP_HEADERS
 
 set(APP_SOURCES
     main.cpp
-    mainwindow.cpp
-    downloaditem.cpp
-    toogle.cpp
 )
 
-qt_add_executable(DownloadManagerApp WIN32 MACOSX_BUNDLE ${APP_SOURCES} ${APP_HEADERS})
+qt_add_executable(DownloadManagerApp WIN32 MACOSX_BUNDLE ${APP_SOURCES})
 
 target_link_libraries(DownloadManagerApp PRIVATE
     DownloadCore

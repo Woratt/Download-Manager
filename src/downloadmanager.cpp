@@ -19,7 +19,7 @@ DownloadManager::DownloadManager(QObject *parent) : QObject(parent){
         for(auto it = m_itemTask.begin(); it != m_itemTask.end(); ++it){
             pairs.append(QPair<DownloadItem*, std::shared_ptr<DownloadTask>>(it.key(), it.value()));
         }
-        m_db->saveDownloads(DownloadAdapter::toRecord(pairs));
+        m_db->saveDownloads(DownloadAdapter().toRecord(pairs));
     }, Qt::QueuedConnection);
 
     connect(m_db, &DownloadDatabase::saveSuccesed, this, [&](){
