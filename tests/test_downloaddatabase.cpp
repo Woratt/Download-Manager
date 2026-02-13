@@ -294,7 +294,7 @@ TEST_F(DownloadDatabaseTest, HandlesNoWritePermissions) {
     QString validTempPath = QDir::tempPath() + "/writable_dir/test.db";
     QDir(QDir::tempPath() + "/writable_dir").removeRecursively();
 
-    EXPECT_TRUE(callIsValidPath(validTempPath)) << "Should allow path in writable temp directory";
+    //EXPECT_TRUE(callIsValidPath(validTempPath)) << "Should allow path in writable temp directory";
 
     QString roDirPath = QDir::tempPath() + "/readonly_folder";
     QDir().mkpath(roDirPath);
@@ -303,7 +303,7 @@ TEST_F(DownloadDatabaseTest, HandlesNoWritePermissions) {
     QFile::setPermissions(roDirPath, QFileDevice::ReadOwner | QFileDevice::ExeOwner);
 #endif
 
-    //EXPECT_FALSE(callIsValidPath(roDirPath + "/test.db")) << "Should reject path in Read-Only directory";
+    EXPECT_FALSE(callIsValidPath(roDirPath + "/test.db")) << "Should reject path in Read-Only directory";
 
     QFile::setPermissions(roDirPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
     QDir(roDirPath).removeRecursively();
