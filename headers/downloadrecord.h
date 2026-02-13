@@ -22,7 +22,6 @@ public:
     QString m_actualHash;
     QString m_hashAlgorithm;
     QByteArray m_chunkHashes;
-    bool m_isSSD;
 
     qint64 m_totalBytes = 0;
     qint64 m_downloadedBytes = 0;

@@ -2,7 +2,7 @@
 
 DownloadManager::DownloadManager(QObject *parent) : QObject(parent){
     m_threadPool = new ThreadPool(this);
-    m_db = new DownloadDatabase(this);
+    m_db = new DownloadDatabase("",this);
     m_networkManager = new NetworkManager(this);
     m_storageManager = new StorageManager();
 
@@ -19,7 +19,7 @@ DownloadManager::DownloadManager(QObject *parent) : QObject(parent){
         for(auto it = m_itemTask.begin(); it != m_itemTask.end(); ++it){
             pairs.append(QPair<DownloadItem*, std::shared_ptr<DownloadTask>>(it.key(), it.value()));
         }
-        m_db->saveDownloads(DownloadAdapter().toRecord(pairs));
+        m_db->saveDownloads(DownloadAdapter().toRecords(pairs));
     }, Qt::QueuedConnection);
 
     connect(m_db, &DownloadDatabase::saveSuccesed, this, [&](){
@@ -243,7 +243,7 @@ void DownloadManager::deleteDownload(DownloadItem *item){
 
     m_itemTask.remove(item);
     m_items.removeOne(item);
-    m_db->deleteDownload(item);
+    m_db->deleteDownload(DownloadAdapter().toRecord(item, task));
     m_urlsDownloading.removeOne(item->getUrl());
     emit deleteDownloadItem(item);
 }

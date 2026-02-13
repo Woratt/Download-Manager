@@ -258,16 +258,18 @@ void DownloadItem::setFileName(const QString& newFileName)
     m_nameFile->setText(m_nameFileStr);
 }
 
-QString DownloadItem::getName()
+QString DownloadItem::getName() const
 {
     return m_nameFileStr;
 }
 
-QString DownloadItem::getUrl(){
+QString DownloadItem::getUrl() const
+{
     return m_url;
 }
 
-QString DownloadItem::getFilePath(){
+QString DownloadItem::getFilePath() const
+{
     return m_filePath;
 }
 
@@ -389,6 +391,7 @@ DownloadItem::~DownloadItem(){
     m_process->deleteLater();
 }
 
-qint64 DownloadItem::getResumePos(){
+qint64 DownloadItem::getResumePos() const
+{
     return m_totalBytesReceived;
 }

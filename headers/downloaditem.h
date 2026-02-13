@@ -26,13 +26,13 @@ class DownloadItem : public QWidget
 public:
     DownloadItem(const QString&, const QString&, const QString&, QWidget* parent = nullptr);
     ~DownloadItem();
-    QString getName();
-    QString getUrl();
-    QString getFilePath();
+    QString getName() const;
+    QString getUrl() const;
+    QString getFilePath() const;
     void pauseDownloadAll(bool);
     void setNotChecked();
     void setFileName(const QString&);
-    qint64 getResumePos();
+    qint64 getResumePos() const;
     void updateFromDb(const DownloadRecord &record);
 public slots:
     void onProgressChanged(qint64 bytesReceived, qint64 bytesTotal);

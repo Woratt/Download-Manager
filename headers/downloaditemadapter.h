@@ -11,7 +11,8 @@ class DownloadAdapter
 public:
     DownloadAdapter(){};
     ~DownloadAdapter(){};
-    QVector<DownloadRecord> toRecord(const QVector<QPair<DownloadItem*, std::shared_ptr<DownloadTask>>>& pairs);
+    QVector<DownloadRecord> toRecords(const QVector<QPair<DownloadItem*, std::shared_ptr<DownloadTask>>>& pairs);
+    DownloadRecord toRecord(const DownloadItem* item, std::shared_ptr<DownloadTask> task);
 };
 
 #endif // DOWNLOADITEMADAPTER_H
