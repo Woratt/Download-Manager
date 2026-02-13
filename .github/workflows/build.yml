@@ -106,5 +106,5 @@ jobs:
 
       - name: Tests
         run: |
-          ctest --preset conan-default --output-on-failure --verbose
+          ctest --preset conan-release --output-on-failure --verbose
         shell: bash
