@@ -295,6 +295,7 @@ TEST_F(DownloadDatabaseTest, HandlesNoWritePermissions) {
 
 #ifdef Q_OS_UNIX
     QFile::setPermissions(roDirPath, QFileDevice::ReadOwner | QFileDevice::ExeOwner);
+
     EXPECT_FALSE(callIsValidPath(roDirPath + "/test.db")) << "Should reject path in Read-Only directory";
 
     QFile::setPermissions(roDirPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
