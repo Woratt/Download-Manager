@@ -101,7 +101,7 @@ jobs:
 
       - name: Build
         run: |
-          cmake --build --preset conan-default
+          cmake --build --preset conan-release
         shell: bash
 
       - name: Tests
