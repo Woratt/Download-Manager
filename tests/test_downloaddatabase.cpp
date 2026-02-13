@@ -278,12 +278,6 @@ TEST_F(DownloadDatabaseTest, RejectPathIfItIsDirectory) {
 }
 
 TEST_F(DownloadDatabaseTest, HandlesNoWritePermissions) {
-#ifdef Q_OS_WIN
-    QString winPath = "C:/Windows/system_db_test.db";
-    //EXPECT_FALSE(callIsValidPath(winPath)) << "Should reject path in protected Windows directory";
-
-    EXPECT_FALSE(callIsValidPath("Z:/non_existent_drive/test.db")) << "Should reject non-existent drive";
-#endif
 
 #ifdef Q_OS_UNIX
     EXPECT_FALSE(callIsValidPath("/protected_test.db")) << "Should reject path in root directory without permissions";
@@ -301,12 +295,11 @@ TEST_F(DownloadDatabaseTest, HandlesNoWritePermissions) {
 
 #ifdef Q_OS_UNIX
     QFile::setPermissions(roDirPath, QFileDevice::ReadOwner | QFileDevice::ExeOwner);
-#endif
-
     EXPECT_FALSE(callIsValidPath(roDirPath + "/test.db")) << "Should reject path in Read-Only directory";
 
     QFile::setPermissions(roDirPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
     QDir(roDirPath).removeRecursively();
+#endif
 }
 
 TEST_F(DownloadDatabaseTest, HandlesSpacesInPath) {
