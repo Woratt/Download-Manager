@@ -1,0 +1,160 @@
+name: Qt Cross-Platform release
+
+on: 
+    push:
+      branches: [ main ]
+      tags: [ 'v*' ]
+
+permissions:
+  contents: write   
+
+jobs:
+  build-macOS:
+    runs-on: macos-latest
+    steps:
+      - name: Get repository code 
+        uses: actions/checkout@v3
+
+      - name: Install dependencies 
+        run: |
+          brew update
+          brew install cmake qt conan
+          
+      - name: Conan Install
+        run: |
+          conan profile detect --force
+          conan install . --output-folder=build --build=missing -s build_type=Release
+
+      - name: Configure CMake
+        run: |
+          cmake --preset conan-release
+          
+      - name: Build
+        run: |
+          cmake --build --preset conan-release
+
+      - name: Tests
+        run: |
+          ctest --preset conan-release --output-on-failure --verbose
+
+      - name: Create DMG
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+            export PATH=$(brew --prefix qt)/bin:$PATH
+            macdeployqt build/Release/Download-Manager.app -dmg
+            mv build/Release/Download-Manager.dmg Download-Manager-macOS.dmg
+  
+      - name: Upload macOS Artifact
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+            name: macos-dmg
+            path: Download-Manager-macOS.dmg
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get repository code 
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+                build-essential cmake qt6-base-dev \
+                libqt6network6 libqt6widgets6 libqt6sql6 \
+                libgl1-mesa-dev libxkbcommon-dev
+          pip3 install conan
+
+      - name: Conan Install
+        run: |
+          conan profile detect --force
+          conan install . --output-folder=build --build=missing -s build_type=Release
+          
+      - name: Configure CMake
+        run: |
+          cmake --preset conan-release
+      
+      - name: Build project
+        run: |
+          cmake --build --preset conan-release
+
+      - name: Tests
+        run: |
+          ctest --preset conan-release --output-on-failure --verbose
+          
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Get repository code 
+        uses: actions/checkout@v3
+
+      - name: Install Python (for Conan)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Conan
+        run: |
+          pip install conan
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '6.5.0'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+
+      - name: Conan Install
+        run: |
+          conan profile detect --force
+          conan install . --output-folder=build --build=missing -s build_type=Release
+        shell: bash
+        
+      - name: Configure CMake
+        run: |
+          cmake --preset conan-default
+        shell: bash
+
+      - name: Build
+        run: |
+          cmake --build --preset conan-release
+        shell: bash
+
+      - name: Tests
+        run: |
+          ctest --preset conan-release --output-on-failure --verbose
+        shell: bash
+
+      - name: Deploy Windows
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          mkdir dist
+          cp build/Release/Download-Manager.exe dist/
+          windeployqt dist/Download-Manager.exe
+          powershell Compress-Archive -Path dist/* -DestinationPath Download-Manager-Windows.zip
+
+      - name: Upload Windows Artifact
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: Download-Manager-Windows.zip
+
+  publish:
+    needs: [build-macOS, build-windows] 
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            macos-dmg/Download-Manager-macOS.dmg
+            windows-zip/Download-Manager-Windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
