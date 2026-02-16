@@ -162,7 +162,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-zip
-          path: Download-Manager-Windows.zip
+          path: DownloadManagerApp-Windows.zip
 
   publish:
     needs: [build-macOS, build-windows] 
@@ -177,6 +177,6 @@ jobs:
         with:
           files: |
             macos-dmg/Download-Manager-macOS.dmg
-            windows-zip/Download-Manager-Windows.zip
+            windows-zip/DownloadManagerApp-Windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
