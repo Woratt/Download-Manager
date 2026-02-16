@@ -41,8 +41,19 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
             export PATH=$(brew --prefix qt)/bin:$PATH
-            macdeployqt build/Release/Download-Manager.app -dmg
-            mv build/Release/Download-Manager.dmg Download-Manager-macOS.dmg
+
+            APP_PATH=$(find build -name "*.app" -type d | head -n 1)
+            echo "Found app bundle at: $APP_PATH"
+
+            if [ -z "$APP_PATH" ]; then
+              echo "Error: App bundle not found!"
+              exit 1
+            fi
+
+            macdeployqt "$APP_PATH" -dmg
+
+            DMG_PATH=$(find build -name "*.dmg" | head -n 1)
+            mv "$DMG_PATH" Download-Manager-macOS.dmg
   
       - name: Upload macOS Artifact
         if: startsWith(github.ref, 'refs/tags/')
@@ -130,10 +141,21 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
+          EXE_PATH=$(find build -name "Download-Manager.exe" -type f | grep -i "Release" | head -n 1)
+
+          echo "Found executable at: $EXE_PATH"
+
+          if [ -z "$EXE_PATH" ]; then
+            echo "Error: Executable not found!"
+            exit 1
+          fi
+
           mkdir dist
-          cp build/Release/Download-Manager.exe dist/
+          cp "$EXE_PATH" dist/
+
           windeployqt dist/Download-Manager.exe
-          powershell Compress-Archive -Path dist/* -DestinationPath Download-Manager-Windows.zip
+
+          powershell "Compress-Archive -Path dist/* -DestinationPath Download-Manager-Windows.zip"
 
       - name: Upload Windows Artifact
         if: startsWith(github.ref, 'refs/tags/')
