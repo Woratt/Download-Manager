@@ -141,7 +141,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
-          EXE_PATH=$(find build -name "Download-Manager.exe" -type f | grep -i "Release" | head -n 1)
+          EXE_PATH=$(find build -name "DownloadManagerApp.exe" -type f | grep -i "Release" | head -n 1)
 
           echo "Found executable at: $EXE_PATH"
 
@@ -153,9 +153,9 @@ jobs:
           mkdir dist
           cp "$EXE_PATH" dist/
 
-          windeployqt dist/Download-Manager.exe
+          windeployqt dist/DownloadManagerApp.exe
 
-          powershell "Compress-Archive -Path dist/* -DestinationPath Download-Manager-Windows.zip"
+          powershell "Compress-Archive -Path dist/* -DestinationPath DownloadManagerApp-Windows.zip"
 
       - name: Upload Windows Artifact
         if: startsWith(github.ref, 'refs/tags/')
