@@ -253,3 +253,5 @@ DownloadManager::~DownloadManager(){
     m_storageThread->wait();
     m_storageThread->deleteLater();
 }
+
+
