@@ -76,17 +76,17 @@ DownloadTypes::ConflictResult DownloadManager::checkForConflicts(const QString &
 }
 
 void DownloadManager::createAndStartDownload(const QString &url, const QString &filePath, const QString& nameOfFile, qint64 fileSize) {
-    DownloadTypes::FileInfo fileInfo;
-    fileInfo.fileName = nameOfFile;
+    DownloadTypes::DownloadRecord fileInfo;
+    fileInfo.name = nameOfFile;
     fileInfo.filePath = filePath;
-    fileInfo.fileSize = fileSize;
+    fileInfo.totalBytes = fileSize;
 
     DownloadItem *item = new DownloadItem(url, filePath, nameOfFile);
     std::shared_ptr<DownloadTask> task = std::make_shared<DownloadTask>(url, fileInfo);
 
     QMetaObject::invokeMethod(m_storageManager, "openFile",
                               Qt::QueuedConnection,
-                              Q_ARG(DownloadTypes::FileInfo, fileInfo));
+                              Q_ARG(DownloadTypes::DownloadRecord, fileInfo));
 
     m_items.push_back(item);
 
@@ -104,7 +104,7 @@ void DownloadManager::createAndStartDownload(const QString &url, const QString &
     connect(item, &DownloadItem::finishedDownload, this, &DownloadManager::finished);
     connect(item, &DownloadItem::ChangedBt, this, &DownloadManager::changeBt);
 
-    connect(m_storageManager, &StorageManager::fileOpen, this, [=](const DownloadTypes::FileInfo &fileInfo){
+    connect(m_storageManager, &StorageManager::fileOpen, this, [=](const DownloadTypes::DownloadRecord &fileInfo){
         if(fileInfo == task->getFileInfo()){
 
             m_threadPool->addTask(task);
@@ -167,10 +167,10 @@ void DownloadManager::setItemsFromDB(){
     QVector<DownloadRecord> records = m_db->getDownloads();
 
     for(auto& record : records){
-        DownloadTypes::FileInfo fileInfo;
-        fileInfo.fileName = record.m_name;
+        DownloadTypes::DownloadRecord fileInfo;
+        fileInfo.name = record.m_name;
         fileInfo.filePath = record.m_filePath;
-        fileInfo.fileSize = record.m_totalBytes;
+        fileInfo.totalBytes = record.m_totalBytes;
         DownloadItem* item = new DownloadItem(record.m_url, record.m_filePath, record.m_name);
         std::shared_ptr<DownloadTask> task = std::make_shared<DownloadTask>(record.m_url, fileInfo);
 
@@ -179,7 +179,7 @@ void DownloadManager::setItemsFromDB(){
         item->updateFromDb(record);
         task->updateFromDb(record);
 
-        connect(m_storageManager, &StorageManager::fileOpen, this, [=](const DownloadTypes::FileInfo &fileInfo){
+        connect(m_storageManager, &StorageManager::fileOpen, this, [=](const DownloadTypes::DownloadRecord &fileInfo){
             if(fileInfo == task->getFileInfo() && !m_itemTask[item]){
 
                 m_threadPool->addTaskFromDB(task);
@@ -193,7 +193,7 @@ void DownloadManager::setItemsFromDB(){
 
         QMetaObject::invokeMethod(m_storageManager, "openFile",
                                   Qt::QueuedConnection,
-                                  Q_ARG(DownloadTypes::FileInfo, fileInfo));
+                                  Q_ARG(DownloadTypes::DownloadRecord, fileInfo));
 
         connect(m_storageManager, &StorageManager::savedLastChunk, task.get(), &DownloadTask::onFinished, Qt::QueuedConnection);
         connect(m_storageManager, &StorageManager::changeQuantityOfChunks, task.get(), &DownloadTask::changeQuantityOfChunks, Qt::QueuedConnection);
@@ -234,7 +234,7 @@ void DownloadManager::deleteDownload(DownloadItem *item){
 
         QMetaObject::invokeMethod(m_storageManager, "deleteAllInfo",
                                   Qt::QueuedConnection,
-                                  Q_ARG(DownloadTypes::FileInfo, task->getFileInfo()));
+                                  Q_ARG(DownloadTypes::DownloadRecord, task->getFileInfo()));
 
         task->disconnect();
 

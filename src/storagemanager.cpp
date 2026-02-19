@@ -8,15 +8,15 @@ StorageManager::~StorageManager() {
     }
 }
 
-void StorageManager::openFile(const DownloadTypes::FileInfo &fileInfo) {
+void StorageManager::openFile(const DownloadTypes::DownloadRecord &fileInfo) {
     if(!m_files.contains(fileInfo)){
         std::shared_ptr<QFile> file = std::make_shared<QFile>(fileInfo.filePath);
         if (!file->open(QIODevice::ReadWrite)) {
             emit errorOccurred("Не вдалося відкрити файл для запису: " + file->errorString());
         }
 
-        if (file->size() < fileInfo.fileSize) {
-            if (!file->resize(fileInfo.fileSize)) {
+        if (file->size() < fileInfo.totalBytes) {
+            if (!file->resize(fileInfo.totalBytes)) {
                 emit errorOccurred("Не вдалося виділити місце на диску!");
             }
         }
@@ -30,7 +30,7 @@ void StorageManager::openFile(const DownloadTypes::FileInfo &fileInfo) {
     emit fileOpen(fileInfo);
 }
 
-void StorageManager::writeChunk(const DownloadTypes::FileInfo &fileInfo, int index, const QByteArray &data) {
+void StorageManager::writeChunk(const DownloadTypes::DownloadRecord &fileInfo, int index, const QByteArray &data) {
     if (!m_files[fileInfo]->isOpen()) return;
     if(data.size() < m_chunkSize){
         m_data[fileInfo].push_back(data);
@@ -44,7 +44,7 @@ void StorageManager::writeChunk(const DownloadTypes::FileInfo &fileInfo, int ind
     }
 }
 
-void StorageManager::writeToDisk(const DownloadTypes::FileInfo &fileInfo, qint64 lastIndex){
+void StorageManager::writeToDisk(const DownloadTypes::DownloadRecord &fileInfo, qint64 lastIndex){
     if (!m_files.contains(fileInfo)) return;
 
     std::shared_ptr<QFile> file = m_files[fileInfo];
@@ -87,7 +87,7 @@ void StorageManager::writeToDisk(const DownloadTypes::FileInfo &fileInfo, qint64
     }
 }
 
-void StorageManager::flushAllData(const DownloadTypes::FileInfo &fileInfo){
+void StorageManager::flushAllData(const DownloadTypes::DownloadRecord &fileInfo){
     if (!m_files.contains(fileInfo)) return;
 
     std::shared_ptr<QFile> file = m_files[fileInfo];
@@ -116,7 +116,7 @@ void StorageManager::flushAllData(const DownloadTypes::FileInfo &fileInfo){
 
 }
 
-void StorageManager::updateQuantityOfChunks(const DownloadTypes::FileInfo &fileInfo, qint64 writeTime, qint64 dataSize){
+void StorageManager::updateQuantityOfChunks(const DownloadTypes::DownloadRecord &fileInfo, qint64 writeTime, qint64 dataSize){
     if (dataSize <= 0) return;
 
     qint64 avgTimePerChunk = writeTime / dataSize;
@@ -139,13 +139,13 @@ void StorageManager::updateQuantityOfChunks(const DownloadTypes::FileInfo &fileI
     }
 }
 
-void StorageManager::clearFile(const DownloadTypes::FileInfo &fileInfo){
+void StorageManager::clearFile(const DownloadTypes::DownloadRecord &fileInfo){
     if (m_files[fileInfo]->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         m_files[fileInfo]->close();
     }
 }
 
-void StorageManager::closeFile(const DownloadTypes::FileInfo &fileInfo) {
+void StorageManager::closeFile(const DownloadTypes::DownloadRecord &fileInfo) {
     flushAllData(fileInfo);
     if (m_files[fileInfo]->isOpen()) {
         m_files[fileInfo]->flush();
@@ -153,7 +153,7 @@ void StorageManager::closeFile(const DownloadTypes::FileInfo &fileInfo) {
     }
 }
 
-void StorageManager::deleteAllInfo(const DownloadTypes::FileInfo &fileInfo){
+void StorageManager::deleteAllInfo(const DownloadTypes::DownloadRecord &fileInfo){
     closeFile(fileInfo);
     m_files.remove(fileInfo);
     m_data.remove((fileInfo));

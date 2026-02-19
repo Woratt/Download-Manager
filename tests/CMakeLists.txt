@@ -2,6 +2,7 @@ add_executable(unit_tests
     test_main.cpp
     test_chunkprocessor.cpp
     test_downloaddatabase.cpp
+    test_downloadregistry.cpp
 )
 
 target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/headers)

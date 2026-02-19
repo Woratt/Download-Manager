@@ -3,6 +3,7 @@
 
 #include <QString>
 #include <QVector>
+#include <QUuid>
 
 class DownloadItem;
 
@@ -34,20 +35,60 @@ struct ConflictResult {
     bool existingDownloads;
 };
 
-struct FileInfo{
+enum class DownloadStatus { Preparing, Ready, Pending, Downloading, Paused, Error, Completed, Cancelled };
+
+struct DownloadRecord {
+    QUuid id;
+    QString name;
+    QString url;
     QString filePath;
-    QString fileName;
-    qint64 fileSize;
-    qint64 quantityOfChunks{8};
+    QString expectedHash;
+    QString actualHash;
+    QString hashAlgorithm;
+    QVector<QByteArray> chunkHashes;
+    DownloadStatus status = DownloadStatus::Preparing;
+    qint64 totalBytes = 0;
+    qint64 downloadedBytes = 0;
+    qint64 quantityOfChunks = 8;
 
-    bool operator<(const FileInfo &other) const {
-        return filePath < other.filePath;
+    bool operator==(const DownloadRecord& other) const {
+        return id == other.id &&
+               name == other.name &&
+               url == other.url &&
+               filePath == other.filePath &&
+               expectedHash == other.expectedHash &&
+               actualHash == other.actualHash &&
+               hashAlgorithm == other.hashAlgorithm &&
+               chunkHashes == other.chunkHashes &&
+               status == other.status &&
+               totalBytes == other.totalBytes &&
+               downloadedBytes == other.downloadedBytes &&
+               quantityOfChunks == other.quantityOfChunks;
     }
 
-    bool operator==(const FileInfo &other) const {
-        if(other.fileName == fileName && other.filePath == filePath && other.fileSize == fileSize) return true;
-        else return false;
+    bool operator!=(const DownloadRecord& other) const {
+        return !(*this == other);
     }
+
+    bool operator<(const DownloadRecord& other) const {
+        if (id != other.id) {
+            return id < other.id;
+        }
+
+        if (name != other.name) return name < other.name;
+        if (url != other.url) return url < other.url;
+        if (filePath != other.filePath) return filePath < other.filePath;
+        if (status != other.status) return static_cast<int>(status) < static_cast<int>(other.status);
+        if (totalBytes != other.totalBytes) return totalBytes < other.totalBytes;
+        if (downloadedBytes != other.downloadedBytes) return downloadedBytes < other.downloadedBytes;
+        if (quantityOfChunks != other.quantityOfChunks) return quantityOfChunks < other.quantityOfChunks;
+
+        return false;
+    }
+
+    bool operator>(const DownloadRecord& other) const  { return other < *this; }
+    bool operator<=(const DownloadRecord& other) const { return !(*this > other); }
+    bool operator>=(const DownloadRecord& other) const { return !(*this < other); }
 };
 
 

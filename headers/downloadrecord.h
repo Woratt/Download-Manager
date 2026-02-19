@@ -34,6 +34,7 @@ public:
         DownloadRecord record;
         return record;
     }
+
 };
 
 #endif // DOWNLOADRECORD_H

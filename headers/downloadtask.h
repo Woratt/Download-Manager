@@ -41,10 +41,10 @@ public:
         Deleted
     };
 
-    DownloadTask(const QString&, DownloadTypes::FileInfo fileInfo, QObject *parent = nullptr);
+    DownloadTask(const QString&, DownloadTypes::DownloadRecord fileInfo, QObject *parent = nullptr);
     ~DownloadTask();
     Status getStatus(){ return m_status; };
-    DownloadTypes::FileInfo getFileInfo() const { return m_fileInfo; };
+    DownloadTypes::DownloadRecord getFileInfo() const { return m_fileInfo; };
     void updateFromDb(const DownloadRecord &record);
 signals:
     void progressChanged(qint64, qint64);
@@ -52,21 +52,21 @@ signals:
     void paused();
     void stoped();
     void start();
-    void deletedownloadedData(const DownloadTypes::FileInfo &fileInfo);
-    void clearFile(const DownloadTypes::FileInfo &fileInfo);
-    void openFile(const DownloadTypes::FileInfo &fileInfo, qint64 resumeDownloadPos);
-    void stopWrite(const DownloadTypes::FileInfo &fileInfo);
+    void deletedownloadedData(const DownloadTypes::DownloadRecord &fileInfo);
+    void clearFile(const DownloadTypes::DownloadRecord &fileInfo);
+    void openFile(const DownloadTypes::DownloadRecord &fileInfo, qint64 resumeDownloadPos);
+    void stopWrite(const DownloadTypes::DownloadRecord &fileInfo);
     void checkFinished(bool isCorrupted);
-    void writeChunk(const DownloadTypes::FileInfo &fileInfo, int index, const QByteArray &data);
+    void writeChunk(const DownloadTypes::DownloadRecord &fileInfo, int index, const QByteArray &data);
 public slots:
     void startDownload();
     void pauseDownload();
     void resumeDownload();
-    void onFinished(const DownloadTypes::FileInfo &fileInfo);
+    void onFinished(const DownloadTypes::DownloadRecord &fileInfo);
     void stopDownload();
     void setStatus(Status);
     void saveAndWriteChunckHash(int index, const QByteArray &data, const QByteArray &hash);
-    void changeQuantityOfChunks(const DownloadTypes::FileInfo &fileInfo, qint64 valueOfChange);
+    void changeQuantityOfChunks(const DownloadTypes::DownloadRecord &fileInfo, qint64 valueOfChange);
 private slots:
     void onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
     void onNetworkError(QNetworkReply::NetworkError);
@@ -76,7 +76,7 @@ private:
     QString m_actualHash;
     qint64 m_resumeDownloadPos;
 
-    DownloadTypes::FileInfo m_fileInfo;
+    DownloadTypes::DownloadRecord m_fileInfo;
 
     QStringList m_hashCandidates;
     QVector<QByteArray> m_chunkHashes;

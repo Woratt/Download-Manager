@@ -12,6 +12,8 @@ set(CORE_HEADERS
     ${CMAKE_SOURCE_DIR}/headers/mainwindow.h
     ${CMAKE_SOURCE_DIR}/headers/downloaditem.h
     ${CMAKE_SOURCE_DIR}/headers/toogle.h
+    ${CMAKE_SOURCE_DIR}/headers/downloadregistry.h
+    ${CMAKE_SOURCE_DIR}/headers/downloadtypes.h
 )
 
 set(CORE_SOURCES
@@ -28,7 +30,10 @@ set(CORE_SOURCES
     mainwindow.cpp
     downloaditem.cpp
     toogle.cpp
+    downloadregistry.cpp
 )
+
+find_package(Qt6 REQUIRED COMPONENTS Core)
 
 add_library(DownloadCore STATIC ${CORE_HEADERS} ${CORE_SOURCES})
 
@@ -38,6 +43,7 @@ target_link_libraries(DownloadCore PUBLIC
     Qt6::Sql
     Qt6::Widgets
 )
+target_link_libraries(DownloadCore PRIVATE Qt6::Core)
 
 set(APP_HEADERS
     ${CMAKE_SOURCE_DIR}/headers/mainwindow.h

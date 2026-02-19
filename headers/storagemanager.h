@@ -17,29 +17,29 @@ public:
     StorageManager(QObject *parent = nullptr);
     ~StorageManager();
 public slots:
-    void openFile(const DownloadTypes::FileInfo &fileInfo);
-    void writeChunk(const DownloadTypes::FileInfo &fileInfo, int index, const QByteArray &data);
-    void clearFile(const DownloadTypes::FileInfo &fileInfo);
-    void closeFile(const DownloadTypes::FileInfo &ileInfo);
-    void deleteAllInfo(const DownloadTypes::FileInfo &fileInfo);
+    void openFile(const DownloadTypes::DownloadRecord &fileInfo);
+    void writeChunk(const DownloadTypes::DownloadRecord &fileInfo, int index, const QByteArray &data);
+    void clearFile(const DownloadTypes::DownloadRecord &fileInfo);
+    void closeFile(const DownloadTypes::DownloadRecord &ileInfo);
+    void deleteAllInfo(const DownloadTypes::DownloadRecord &fileInfo);
 signals:
     void chunkSaved(int index);
-    void savedLastChunk(const DownloadTypes::FileInfo &fileInfo);
+    void savedLastChunk(const DownloadTypes::DownloadRecord &fileInfo);
     void errorOccurred(const QString &message);
-    void fileOpen(const DownloadTypes::FileInfo &fileInfo);
-    void changeQuantityOfChunks(const DownloadTypes::FileInfo &fileInfo, qint64 valueOfChange);
+    void fileOpen(const DownloadTypes::DownloadRecord &fileInfo);
+    void changeQuantityOfChunks(const DownloadTypes::DownloadRecord &fileInfo, qint64 valueOfChange);
 private:
     qint64 m_chunkSize{1024 * 1024};
     qint64 position{0};
 
-    QMap<DownloadTypes::FileInfo, QVector<QByteArray>> m_data;
+    QMap<DownloadTypes::DownloadRecord, QVector<QByteArray>> m_data;
 
-    QMap<DownloadTypes::FileInfo, std::shared_ptr<QFile>> m_files;
+    QMap<DownloadTypes::DownloadRecord, std::shared_ptr<QFile>> m_files;
 
-    void writeToDisk(const DownloadTypes::FileInfo &fileInfo, qint64 index);
-    void flushAllData(const DownloadTypes::FileInfo &fileInfo);
+    void writeToDisk(const DownloadTypes::DownloadRecord &fileInfo, qint64 index);
+    void flushAllData(const DownloadTypes::DownloadRecord &fileInfo);
 
-    void updateQuantityOfChunks(const DownloadTypes::FileInfo &fileInfo, qint64 writeTime, qint64 dataSize);
+    void updateQuantityOfChunks(const DownloadTypes::DownloadRecord &fileInfo, qint64 writeTime, qint64 dataSize);
 };
 
 #endif // STORAGEMANAGER_H

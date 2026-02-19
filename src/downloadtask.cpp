@@ -1,6 +1,6 @@
 #include "../headers/downloadtask.h"
 
-DownloadTask::DownloadTask(const QString& url, DownloadTypes::FileInfo fileInfo, QObject *parent) :
+DownloadTask::DownloadTask(const QString& url, DownloadTypes::DownloadRecord fileInfo, QObject *parent) :
                                                                     QObject(parent),
                                                                     m_url(url),
                                                                     m_fileInfo(fileInfo),
@@ -237,7 +237,7 @@ void DownloadTask::adjustTimeout() {
     }
 }
 
-void DownloadTask::onFinished(const DownloadTypes::FileInfo &fileInfo){
+void DownloadTask::onFinished(const DownloadTypes::DownloadRecord &fileInfo){
     QThread* currentObjThread = this->thread();
     QThread* currentExecThread = QThread::currentThread();
 
@@ -396,7 +396,7 @@ void DownloadTask::verifyHashOfFile(){
     emit checkFinished(false);
 }
 
-void DownloadTask::changeQuantityOfChunks(const DownloadTypes::FileInfo &fileInfo, qint64 valueOfChange){
+void DownloadTask::changeQuantityOfChunks(const DownloadTypes::DownloadRecord &fileInfo, qint64 valueOfChange){
     if(m_fileInfo == fileInfo){
         m_fileInfo.quantityOfChunks += valueOfChange;
     }
